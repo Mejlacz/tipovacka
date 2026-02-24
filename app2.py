@@ -94,7 +94,10 @@ def create_app() -> Flask:
     register_routes(app)
 
     with app.app_context():
-        db.create_all()
+    try:
+        db.create_all()  # Zkusí vytvořit tabulky
+    except:
+        pass  # Pokud existují, ignoruje chybu ✅
         ensure_sqlite_schema()
         seed_defaults_if_empty()
 
