@@ -167,11 +167,14 @@ def create_app() -> Flask:
     # Session Security
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = True  # HTTPS na produkci (Koyeb)
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=24)
     
     # CSRF Configuration
+    app.config["WTF_CSRF_ENABLED"] = True
     app.config["WTF_CSRF_TIME_LIMIT"] = None  # Token nevyprší
     app.config["WTF_CSRF_SSL_STRICT"] = False  # Pro reverse proxy
+    app.config["WTF_CSRF_CHECK_DEFAULT"] = True
 
     db.init_app(app)
     login_manager.init_app(app)
@@ -582,21 +585,16 @@ def validate_password(password: str) -> Tuple[bool, str]:
 def get_email_config():
     """
     Vrátí konfiguraci pro email.
-    Můžeš použít:
-    - Gmail SMTP (potřebuješ App Password)
-    - SendGrid API
-    - Wedos SMTP
-    - Jiný SMTP server
-    
-    Pro development použij print() místo skutečného posílání.
+    Podporuje obě konvence názvů: MAIL_* (Flask-Mail) a SMTP_* (custom).
     """
     return {
-        'SMTP_SERVER': os.environ.get('SMTP_SERVER', 'smtp.gmail.com'),
-        'SMTP_PORT': int(os.environ.get('SMTP_PORT', '587')),
-        'SMTP_USERNAME': os.environ.get('SMTP_USERNAME', ''),
-        'SMTP_PASSWORD': os.environ.get('SMTP_PASSWORD', ''),
-        'FROM_EMAIL': os.environ.get('FROM_EMAIL', 'noreply@tipovacka.cz'),
+        'SMTP_SERVER': os.environ.get('MAIL_SERVER') or os.environ.get('SMTP_SERVER', 'smtp.gmail.com'),
+        'SMTP_PORT': int(os.environ.get('MAIL_PORT') or os.environ.get('SMTP_PORT', '587')),
+        'SMTP_USERNAME': os.environ.get('MAIL_USERNAME') or os.environ.get('SMTP_USERNAME', ''),
+        'SMTP_PASSWORD': os.environ.get('MAIL_PASSWORD') or os.environ.get('SMTP_PASSWORD', ''),
+        'FROM_EMAIL': os.environ.get('MAIL_DEFAULT_SENDER') or os.environ.get('FROM_EMAIL', 'noreply@tipovacka.cz'),
         'FROM_NAME': os.environ.get('FROM_NAME', 'Tipovačka'),
+        'USE_TLS': os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true',
         'SEND_REAL_EMAILS': os.environ.get('SEND_REAL_EMAILS', 'false').lower() == 'true',
         'REQUIRE_EMAIL_VERIFICATION': os.environ.get('REQUIRE_EMAIL_VERIFICATION', 'true').lower() == 'true'
     }
@@ -646,7 +644,8 @@ def send_email(to_email: str, subject: str, html_body: str, text_body: str = Non
         
         # Pošli email
         with smtplib.SMTP(config['SMTP_SERVER'], config['SMTP_PORT']) as server:
-            server.starttls()
+            if config.get('USE_TLS', True):  # Default True pro Gmail
+                server.starttls()
             if config['SMTP_USERNAME'] and config['SMTP_PASSWORD']:
                 server.login(config['SMTP_USERNAME'], config['SMTP_PASSWORD'])
             server.send_message(msg)
@@ -705,7 +704,8 @@ def send_email_with_attachment(to_email: str, subject: str, html_body: str, text
         
         # Odešli
         with smtplib.SMTP(config['SMTP_SERVER'], config['SMTP_PORT']) as server:
-            server.starttls()
+            if config.get('USE_TLS', True):  # Default True pro Gmail
+                server.starttls()
             if config['SMTP_USERNAME'] and config['SMTP_PASSWORD']:
                 server.login(config['SMTP_USERNAME'], config['SMTP_PASSWORD'])
             server.send_message(msg)
