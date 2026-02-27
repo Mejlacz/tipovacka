@@ -1,35 +1,163 @@
+# app_tipovacka3_all_1_8.py
+from __future__ import annotations
+
+import csv
+import io
+import json
+import os
+import re
+import hashlib
+import secrets
+import smtplib
+import tempfile
+import requests
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from typing import Any, Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
+
+from flask import (
+    Flask,
+    Response,
+    abort,
+    flash,
+    jsonify,
+    redirect,
+    render_template_string,
+    request,
+    send_file,
+    session,
+    url_for,
+)
+from flask_login import (
+    LoginManager,
+    UserMixin,
+    current_user,
+    login_required,
+    login_user,
+    logout_user,
+)
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import OperationalError, IntegrityError
+from flask_wtf.csrf import CSRFProtect, generate_csrf
+from werkzeug.security import check_password_hash, generate_password_hash
+
+# =========================================================
+# BODY 1–8 (v jedné verzi)
+# 1) Login/registrace + admin role
+# 2) Přepínač soutěže (globální dropdown)
+# 3) Správa soutěží (sport, aktivace, uzávěrky tipů/extra)
+# 4) Týmy per soutěž + tabulka/standing
+# 5) Zápasy (admin CRUD) + tipování + bodování
+# 6) Extra otázky + odpovědi + uzávěrka
+# 7) Exporty CSV (žebříček, zápasy, týmy, extra)
+# 8) Hromadný import CSV (týmy, zápasy s round/round_id, extra) + audit log
+# =========================================================
+
+# =========================================================
+# KONFIG (uprav si jen tyhle dvě položky)
+# =========================================================
+OWNER_ADMIN_EMAIL = "3049@email.cz"          # owner (jen ty) – vidí tajného usera, má plná práva
+SECRET_USER_EMAIL = "kubamartinec97@gmail.com"          # tajný user (skrytý v admin přehledu pro jiné adminy)
+
+# =========================================================
+# APP + EXTENSIONS
+# =========================================================
+db = SQLAlchemy()
+login_manager = LoginManager()
+login_manager.login_view = "login"
+csrf = CSRFProtect()
+
+
+def _init_db_once(app: Flask) -> None:
+    """
+    Initialize DB schema exactly once per deploy/start.
+    This prevents concurrent gunicorn workers from racing on db.create_all()/seeding.
+    Uses an atomic lock file in instance_path.
+    """
+    instance_path = app.instance_path
+    os.makedirs(instance_path, exist_ok=True)
+
+    done_path = os.path.join(instance_path, ".db_init_done")
+    lock_path = os.path.join(instance_path, ".db_init_lock")
+
+    # If already initialized, do nothing
+    if os.path.exists(done_path):
+        return
+
+    # If lock exists and is stale (older than 10 minutes), remove it
+    try:
+        if os.path.exists(lock_path):
+            mtime = os.path.getmtime(lock_path)
+            if (datetime.utcnow().timestamp() - mtime) > 600:
+                try:
+                    os.remove(lock_path)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # Try to acquire lock atomically
+    try:
+        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        # Another worker is initializing; skip
+        return
+    except Exception:
+        # If we cannot lock for any reason, fall back to best-effort init (guarded)
+        fd = None
+
+    try:
+        with app.app_context():
+            try:
+                db.create_all()
+            except OperationalError as e:
+                # Common when two processes race or table already exists.
+                msg = str(e).lower()
+                if "already exists" not in msg:
+                    raise
+
+            # Keep existing idempotent init steps
+            try:
+                ensure_sqlite_schema()
+            except Exception:
+                # keep app booting; schema helper should be idempotent
+                pass
+
+            try:
+                seed_defaults_if_empty()
+            except IntegrityError:
+                # In case of race on first seed, ignore unique constraint conflicts
+                db.session.rollback()
+            except Exception:
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+
+        # Mark done
+        try:
+            with open(done_path, "w", encoding="utf-8") as f:
+                f.write(datetime.utcnow().isoformat() + "Z")
+        except Exception:
+            pass
+    finally:
+        try:
+            if fd is not None:
+                os.close(fd)
+        except Exception:
+            pass
+        try:
+            if os.path.exists(lock_path):
+                os.remove(lock_path)
+        except Exception:
+            pass
+
+
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
-
-
-    # -----------------------------------------------------------------
-    # SAFE url_for: prevent BuildError from crashing pages when an optional
-    # admin/PWA endpoint is missing (e.g. after partial merges).
-    # -----------------------------------------------------------------
-    from werkzeug.routing import BuildError as _BuildError
-    from flask import url_for as _flask_url_for
-
-    _ENDPOINT_ALIASES = {
-        # admin aliases
-        "admin_dashboard": "dashboard",
-        "admin_rounds": "dashboard",
-        "admin_bulk_edit": "dashboard",
-    }
-
-    def safe_url_for(endpoint: str, **values):
-        try:
-            return _flask_url_for(endpoint, **values)
-        except _BuildError:
-            alt = _ENDPOINT_ALIASES.get(endpoint)
-            if alt and alt != endpoint:
-                try:
-                    return _flask_url_for(alt, **values)
-                except _BuildError:
-                    pass
-            return "#"
-
-    # Override Jinja's url_for globally (templates call url_for directly)
-    app.jinja_env.globals["url_for"] = safe_url_for
 
     os.makedirs(app.instance_path, exist_ok=True)
     
@@ -55,9 +183,6 @@ def create_app() -> Flask:
     csrf.init_app(app)
 
     register_routes(app)
-
-    # Ensure endpoints referenced from templates exist (prevents BuildError)
-    _ensure_template_endpoints(app)
 
     _init_db_once(app)
 
@@ -228,6 +353,28 @@ class Tip(db.Model):
     __table_args__ = (db.UniqueConstraint("user_id", "match_id", name="uq_tip_user_match"),)
 
 
+
+class RoundUserScore(db.Model):
+    __tablename__ = "round_user_score"
+    id = db.Column(db.Integer, primary_key=True)
+    round_id = db.Column(db.Integer, db.ForeignKey("round.id"), index=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=True, nullable=False)
+    points = db.Column(db.Integer, default=0, nullable=False)
+    exact_count = db.Column(db.Integer, default=0, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (db.UniqueConstraint("round_id", "user_id", name="uq_round_user_score"),)
+
+
+class ImportSession(db.Model):
+    __tablename__ = "import_session"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=True, nullable=False)
+    kind = db.Column(db.String(50), default="smart_import_matches", nullable=False)
+    payload_json = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True, nullable=False)
+
+
 class ExtraQuestion(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
@@ -311,51 +458,6 @@ class PushSubscription(db.Model):
     )
 
 
-
-
-class ImportSession(db.Model):
-    """Server-side uložiště pro Smart Import preview (nahrazuje cookie session / pickle).
-
-    - payload_json drží list dictů (naparsované zápasy) nebo jiný preview payload.
-    - created_by_user_id slouží k autorizaci (jen admin, který parsoval, může importovat).
-    """
-    __tablename__ = "import_session"
-
-    id = db.Column(db.String(36), primary_key=True)  # uuid4
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    created_by_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    kind = db.Column(db.String(64), nullable=False, default="smart_import")
-    round_id = db.Column(db.Integer, db.ForeignKey("round.id"), nullable=True)
-    mode = db.Column(db.String(32), nullable=False, default="matches")  # matches/results
-    payload_json = db.Column(db.Text, nullable=False)
-
-    def get_payload(self):
-        try:
-            return json.loads(self.payload_json or "[]")
-        except Exception:
-            return []
-
-    def set_payload(self, payload):
-        self.payload_json = json.dumps(payload, ensure_ascii=False)
-
-
-class RoundUserScore(db.Model):
-    """Cache bodů pro (round_id, user_id) pro rychlé leaderboardy."""
-    __tablename__ = "round_user_score"
-    id = db.Column(db.Integer, primary_key=True)
-    round_id = db.Column(db.Integer, db.ForeignKey("round.id"), nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
-
-    points = db.Column(db.Integer, default=0, nullable=False)
-    exact_count = db.Column(db.Integer, default=0, nullable=False)
-    winner_count = db.Column(db.Integer, default=0, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-
-    __table_args__ = (
-        db.UniqueConstraint("round_id", "user_id", name="uq_round_user_score"),
-    )
-
-
 class NotificationPreferences(db.Model):
     """Nastavení notifikací pro uživatele - co chce dostávat"""
     id = db.Column(db.Integer, primary_key=True)
@@ -371,21 +473,6 @@ class NotificationPreferences(db.Model):
     
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=True, onupdate=datetime.utcnow)
-
-class NotificationSent(db.Model):
-    """Anti-spam / idempotence log for push notifications."""
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
-    kind = db.Column(db.String(64), nullable=False, index=True)
-    round_id = db.Column(db.Integer, db.ForeignKey("round.id"), nullable=True, index=True)
-    match_id = db.Column(db.Integer, db.ForeignKey("match.id"), nullable=True, index=True)
-    sent_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
-    meta_json = db.Column(db.Text, nullable=True)
-
-    __table_args__ = (
-        db.Index("ix_notif_sent_user_kind_round_match", "user_id", "kind", "round_id", "match_id"),
-    )
-
 
 
 class AuditLog(db.Model):
@@ -1102,28 +1189,20 @@ def load_user(user_id: str) -> Optional[User]:
 # =========================================================
 # HELPERS
 # =========================================================
-def now_local() -> datetime:
-    """Current Czech local time (Europe/Prague) as *naive* datetime.
+def now_utc() -> datetime:
+    """Returns current Czech local time (Europe/Prague) as naive datetime.
 
-    The app stores all competition times (match start, tips close, extra close, deadlines)
-    as naive Czech time. Hosts often run in UTC, so using datetime.now() would shift locks.
+    The app stores match times as naive Czech time. Servers (Heroku/Koyeb) usually run in UTC,
+    so using datetime.now() would incorrectly lock tips ~1h early/late depending on DST.
     """
     try:
+        from zoneinfo import ZoneInfo
         cz = ZoneInfo("Europe/Prague")
         return datetime.now(cz).replace(tzinfo=None)
     except Exception:
         # Fallback: best-effort local time
         return datetime.now()
 
-
-def now_utc() -> datetime:
-    """Backward-compatible alias for now_local() (historical name)."""
-    return now_local()
-
-
-def utcnow() -> datetime:
-    """UTC time (naive) for server-side timestamps/token expiries."""
-    return datetime.utcnow()
 
 def parse_naive_datetime(s: str) -> Optional[datetime]:
     """Parse datetime from form input (Czech time)"""
@@ -1147,54 +1226,19 @@ def dt_to_input_value(dt: Optional[datetime]) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M")
 
 
-from functools import wraps
-
-def admin_required(fn=None):
-    """Admin check usable both as decorator (@admin_required) and as inline guard (admin_required())."""
-    if fn is None:
-        if (not current_user.is_authenticated) or (not getattr(current_user, "is_admin_effective", False)):
-            abort(403)
-        return None
-
-    @wraps(fn)
-    def _wrapped(*args, **kwargs):
-        if (not current_user.is_authenticated) or (not getattr(current_user, "is_admin_effective", False)):
-            abort(403)
-        return fn(*args, **kwargs)
-
-    return _wrapped
+def admin_required() -> None:
+    if not current_user.is_authenticated or not getattr(current_user, 'is_admin_effective', False):
+        abort(403)
 
 
-def moderator_required(fn=None):
-    """Moderator check usable as decorator or inline guard."""
-    if fn is None:
-        if (not current_user.is_authenticated) or (not getattr(current_user, "is_moderator_effective", False)):
-            abort(403)
-        return None
-
-    @wraps(fn)
-    def _wrapped(*args, **kwargs):
-        if (not current_user.is_authenticated) or (not getattr(current_user, "is_moderator_effective", False)):
-            abort(403)
-        return fn(*args, **kwargs)
-
-    return _wrapped
+def moderator_required() -> None:
+    if not current_user.is_authenticated or not getattr(current_user, 'is_moderator_effective', False):
+        abort(403)
 
 
-def owner_required(fn=None):
-    """Owner check usable as decorator or inline guard."""
-    if fn is None:
-        if (not current_user.is_authenticated) or (not getattr(current_user, "is_owner", False)):
-            abort(403)
-        return None
-
-    @wraps(fn)
-    def _wrapped(*args, **kwargs):
-        if (not current_user.is_authenticated) or (not getattr(current_user, "is_owner", False)):
-            abort(403)
-        return fn(*args, **kwargs)
-
-    return _wrapped
+def owner_required() -> None:
+    if not current_user.is_authenticated or not current_user.is_owner:
+        abort(403)
 
 
 def can_see_user_in_admin(user: User) -> bool:
@@ -1305,35 +1349,6 @@ def perform_undo(undo_id: int) -> dict:
 VAPID_PRIVATE_KEY = "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZzhjWVNJc2R4aDhXenMrSWgKd0N5THoyTk9ZQk1oK3BBbFhKNy9SWE0yYmZxaFJBTkNBQVR4M2NORjZ0Q215KzloVEtzekQ2bUxCK3RtREhlTwp1YTZBRHF5SFhYRnB4enk3bkJzNFk5dHFEUnVGN1Z0c3orKzFQdFRaanl0WnpkZlRodk1TWGNUZQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg"
 VAPID_PUBLIC_KEY = "BPHdw0Xq0KbL72FMqzMPqYsH62YMd465roAOrIddcWnHPLucGzhj22oNG4XtW2zP77U-1NmPK1nN19OG8xJdxN4"
 VAPID_CLAIMS = {"sub": "mailto:admin@tipovacka.cz"}
-
-def _notif_log_sent(user_id: int, kind: str, round_id: int | None = None, match_id: int | None = None, meta: dict | None = None) -> None:
-    try:
-        rec = NotificationSent(
-            user_id=user_id,
-            kind=kind,
-            round_id=round_id,
-            match_id=match_id,
-            meta_json=json.dumps(meta or {}, ensure_ascii=False),
-        )
-        db.session.add(rec)
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-
-
-def _notif_was_sent_recently(user_id: int, kind: str, round_id: int | None = None, match_id: int | None = None, within_minutes: int = 180) -> bool:
-    try:
-        since = datetime.utcnow() - timedelta(minutes=within_minutes)
-        q = NotificationSent.query.filter_by(user_id=user_id, kind=kind)
-        if round_id is not None:
-            q = q.filter(NotificationSent.round_id == round_id)
-        if match_id is not None:
-            q = q.filter(NotificationSent.match_id == match_id)
-        q = q.filter(NotificationSent.sent_at >= since)
-        return db.session.query(q.exists()).scalar() is True
-    except Exception:
-        return False
-
 
 def send_push_notification(user_id: int, title: str, body: str, data: dict = None, icon: str = "/static/icon-192.png"):
     """
@@ -1949,68 +1964,54 @@ def calc_points_for_tip(match: Match, tip: Tip) -> int:
 # =========================================================
 
 
+def recompute_round_user_score(round_id: int, user_id: int) -> RoundUserScore:
+    """Přepočítá a uloží cache bodů pro (round, user)."""
+    tips = (
+        Tip.query.join(Match)
+        .filter(Match.round_id == round_id, Tip.user_id == user_id, Match.is_deleted == False)
+        .all()
+    )
 
-def _get_or_create_round_user_score(round_id: int, user_id: int) -> RoundUserScore:
+    total_points = 0
+    exact_count = 0
+
+    for tip in tips:
+        match = tip.match
+        if not match:
+            continue
+        if match.home_score is None or match.away_score is None:
+            continue
+        pts = calc_points_for_tip(match, tip)
+        total_points += pts
+        if pts == 3:
+            exact_count += 1
+
     row = RoundUserScore.query.filter_by(round_id=round_id, user_id=user_id).first()
-    if row:
-        return row
-    row = RoundUserScore(round_id=round_id, user_id=user_id, points=0, exact_count=0, winner_count=0)
+    if not row:
+        row = RoundUserScore(round_id=round_id, user_id=user_id)
+
+    row.points = int(total_points)
+    row.exact_count = int(exact_count)
+    row.updated_at = datetime.utcnow()
     db.session.add(row)
+    db.session.commit()
     return row
 
 
-def recompute_round_user_score(round_id: int, user_id: int) -> None:
-    """Přepočítá cache bodů pro jednoho uživatele v jednom kole."""
-    r = db.session.get(Round, round_id)
-    if not r:
-        return
-
-    matches = Match.query.filter_by(round_id=round_id, is_deleted=False).all()
-    tips = Tip.query.join(Match).filter(Match.round_id == round_id, Tip.user_id == user_id).all()
-    tips_by_match = {t.match_id: t for t in tips}
-
-    total = 0
-    exact_count = 0
-    winner_count = 0
-    for m in matches:
-        t = tips_by_match.get(m.id)
-        if not t:
-            continue
-        pts = calc_points_for_tip(m, t)
-        total += pts
-        if pts == 3:
-            exact_count += 1
-        elif pts == 1:
-            winner_count += 1
-
-    row = _get_or_create_round_user_score(round_id, user_id)
-    row.points = int(total)
-    row.exact_count = int(exact_count)
-    row.winner_count = int(winner_count)
-    row.updated_at = datetime.utcnow()
-    db.session.commit()
-
-
 def recompute_round_scores(round_id: int) -> None:
-    """Přepočítá cache pro všechny uživatele v kole (volat po změně výsledků)."""
-    # vezmi uživatele, kteří mají v kole aspoň jeden tip
-    user_ids = (
-        db.session.query(Tip.user_id)
-        .join(Match, Tip.match_id == Match.id)
-        .filter(Match.round_id == round_id)
-        .distinct()
-        .all()
-    )
-    user_ids = [uid for (uid,) in user_ids]
-    for uid in user_ids:
-        # commit uvnitř recompute_round_user_score – pro větší DB by bylo lepší batch,
-        # ale na 20 uživatelů je to OK a bezpečné.
-        recompute_round_user_score(round_id, uid)
+    """Přepočítá cache bodů pro celé kolo."""
+    users = User.query.all()
+    for u in users:
+        try:
+            recompute_round_user_score(round_id, u.id)
+        except Exception:
+            db.session.rollback()
+            continue
 
 
-def get_score_cache_map(round_id: int) -> dict[int, RoundUserScore]:
-    rows = RoundUserScore.query.filter_by(round_id=round_id).all()
-    return {row.user_id: row for row in rows}
+def get_cached_round_score(round_id: int, user_id: int) -> Optional[RoundUserScore]:
+    row = RoundUserScore.query.filter_by(round_id=round_id, user_id=user_id).first()
+    return row
 
 
 
@@ -3339,20 +3340,6 @@ BASE_HTML = r"""
   </div>
   
   <script>
-          // Select all/none helpers
-          const _selAllBtn = document.getElementById('selectAllBtn');
-          const _selNoneBtn = document.getElementById('selectNoneBtn');
-          if (_selAllBtn) {
-            _selAllBtn.addEventListener('click', () => {
-              document.querySelectorAll('.match-checkbox').forEach(cb => cb.checked = true);
-            });
-          }
-          if (_selNoneBtn) {
-            _selNoneBtn.addEventListener('click', () => {
-              document.querySelectorAll('.match-checkbox').forEach(cb => cb.checked = false);
-            });
-          }
-
     // Mobile menu toggle
     function toggleMobileMenu() {
       const nav = document.getElementById('mobile-nav');
@@ -4462,7 +4449,7 @@ def fetch_uefa_ucl_all_fixtures(url: Optional[str] = None) -> List[Dict]:
     lines = [ln for ln in lines if ln]
 
     # Default year heuristic: use current year; if we see an explicit year in any date header, we'll override as we go.
-    default_year = now_local().year
+    default_year = datetime.now().year
 
     games: List[Dict] = []
     current_date: Optional[datetime] = None
@@ -4588,7 +4575,7 @@ def fetch_api_games(api_source: APISource, import_type: Optional[str] = None) ->
         # - matches: only upcoming (unplayed) fixtures
         # - results: only games that already have a score
         try:
-            now_local = now_local()
+            now_local = datetime.now(ZoneInfo("Europe/Prague")).replace(tzinfo=None)
         except Exception:
             now_local = datetime.now()
 
@@ -6592,13 +6579,13 @@ function toggleCollapse(header) {
                         saved_count += 1
 
             db.session.commit()
-
-            # Cache bodů pro rychlý leaderboard
+            
+            # Cache bodů pro leaderboard
             try:
                 recompute_round_user_score(r.id, current_user.id)
-            except Exception as e:
-                print(f"⚠️ recompute_round_user_score failed: {e}")
-
+            except Exception:
+                db.session.rollback()
+            
             # Zkontroluj achievementy
             check_and_award_achievements(current_user.id, r.id)
             
@@ -6759,9 +6746,6 @@ function toggleCollapse(header) {
             {% set my_tip = tip_map.get(m.id) %}
             <tr class="match-row {% if my_tip %}has-tip{% endif %} {% if locked %}locked{% endif %}">
               <td>{{ loop.index }}</td>
-                  <td style="text-align:center;">
-                    <input type="checkbox" class="match-checkbox" checked>
-                  </td>
               <td><strong class="team-name">{{ m.home_team.name if m.home_team else '?' }}</strong></td>
               <td style="text-align: center;">
                 <input type="number" 
@@ -6975,8 +6959,6 @@ inputs.forEach((input, index) => {
         for t in tips:
             tips_by_user.setdefault(t.user_id, {})[t.match_id] = t
 
-        cache_map = get_score_cache_map(r.id)
-
         rows = []
         for u in users:
             # Skrýt tajného uživatele pro všechny kromě ownera a jeho samotného
@@ -6989,36 +6971,18 @@ inputs.forEach((input, index) => {
             if not tmap:
                 continue  # Uživatel nemá žádný tip v této soutěži
 
-            # Preferuj cache (RoundUserScore) – fallback na přímý výpočet
-            cache_row = cache_map.get(u.id)
-            if cache_row:
-                total = int(cache_row.points or 0)
-                exact_count = int(cache_row.exact_count or 0)
-                winner_count = int(cache_row.winner_count or 0)
-            else:
-                total = 0
-                exact_count = 0
-                winner_count = 0
-                for m in matches_q:
-                    t = tmap.get(m.id)
-                    if t:
-                        pts = calc_points_for_tip(m, t)
-                        total += pts
-                        if pts == 3:
-                            exact_count += 1
-                        elif pts == 1:
-                            winner_count += 1
-                # doplň cache pro příště
-                try:
-                    row = _get_or_create_round_user_score(r.id, u.id)
-                    row.points = int(total)
-                    row.exact_count = int(exact_count)
-                    row.winner_count = int(winner_count)
-                    row.updated_at = datetime.utcnow()
-                    db.session.commit()
-                    cache_map[u.id] = row
-                except Exception as e:
-                    print(f"⚠️ cache write failed: {e}")
+            total = 0
+            exact_count = 0
+            winner_count = 0
+            for m in matches_q:
+                t = tmap.get(m.id)
+                if t:
+                    pts = calc_points_for_tip(m, t)
+                    total += pts
+                    if pts == 3:
+                        exact_count += 1
+                    elif pts == 1:
+                        winner_count += 1
             rows.append({
                 "user": u,
                 "total": total,
@@ -11604,9 +11568,6 @@ function submitBulkDelete() {
             
             match_data = _parse_single_line(line, line_num)
             if match_data:
-                if round_id:
-                    match_data['home_team'] = normalize_team_name(match_data.get('home_team',''), round_id=round_id)
-                    match_data['away_team'] = normalize_team_name(match_data.get('away_team',''), round_id=round_id)
                 # CRITICAL FIX: Convert datetime to ISO string for JSON
                 if 'start_time' in match_data and match_data['start_time']:
                     if isinstance(match_data['start_time'], datetime):
@@ -11893,106 +11854,121 @@ function submitBulkDelete() {
 
 
     def _parse_csv_style(line: str) -> Optional[Dict]:
-        """CSV: Sparta,Slavia,2,1,14.2.2026 20:00"""
+        """CSV: Sparta,Slavia,2,1,14.2.2026 20:00
+
+        Robustnější: umí ignorovat úvodní kódový sloupec a sloučit rozpadlý název týmu.
+        """
         if ',' not in line:
             return None
-    
-        parts = [p.strip() for p in line.split(',')]
+
+        parts = [p.strip() for p in line.split(',') if p.strip()]
         if len(parts) < 2:
             return None
-    
-        result = {
+
+        def _looks_like_code(tok: str) -> bool:
+            t = (tok or '').strip()
+            if not t:
+                return False
+            if ' ' in t:
+                return False
+            if len(t) > 5:
+                return False
+            if re.match(r'^[A-Za-z]{1,4}\.?$', t):
+                return True
+            if t.isupper() and re.match(r'^[A-Z0-9]{2,5}$', t):
+                return True
+            return False
+
+        if len(parts) >= 3 and _looks_like_code(parts[0]) and (len(parts[1]) >= 5 or ' ' in parts[1]):
+            parts = parts[1:]
+
+        if len(parts) >= 3 and parts[0].endswith('.') and len(parts[0]) <= 4 and ' ' not in parts[1] and parts[1].isalpha():
+            merged = f"{parts[0]} {parts[1]}"
+            parts = [merged] + parts[2:]
+
+        result: Dict[str, Any] = {
             'home_team': parts[0],
             'away_team': parts[1],
         }
-    
-        # Pokus o parsování skóre
+
         if len(parts) >= 4:
             try:
                 result['home_score'] = int(parts[2])
                 result['away_score'] = int(parts[3])
-            except:
+            except Exception:
                 pass
-    
-        # Pokus o parsování data/času
+
         if len(parts) >= 5:
             dt = _parse_datetime(parts[4])
             if dt:
                 result['start_time'] = dt
-    
+
         return result
+
 
 
     def _parse_pipe_style(line: str) -> Optional[Dict]:
         """Pipe separated: Sparta|Slavia|2|1|14.2.2026 20:00
 
-        Robustní proti tabulkám, které mají na začátku ještě sloupec s kódem / zkratkou:
-        např. "MLA|Mladá Boleslav|FK Jablonec|| |28.2.2026 15:00"
-        nebo "Ml.|Mladá Boleslav|FK Jablonec|-|-|28.2.2026 15:00"
+        Robustnější: umí ignorovat úvodní kódový sloupec (např. "Ml."/"ACS"/"MBL"),
+        a umí sloučit rozpadlý název týmu typu "Ml." + "Boleslav".
         """
         if '|' not in line:
             return None
 
-        parts = [p.strip() for p in line.split('|') if p is not None]
-        # zahodit úplně prázdné koncové sloupce
-        while parts and parts[-1] == '':
-            parts.pop()
-
+        parts = [p.strip() for p in line.split('|') if p.strip()]
         if len(parts) < 2:
             return None
 
-        # Heuristika: první sloupec je "kód" (krátký) a teprve druhý+ třetí jsou týmy
-        # Typicky: ["Ml.", "Mladá Boleslav", "FK Jablonec", "", "", "28.02.2026 15:00"]
-        def looks_like_code(s: str) -> bool:
-            s = (s or '').strip()
-            if not s:
+        # 1) Ignore leading code column (short token without spaces)
+        def _looks_like_code(tok: str) -> bool:
+            t = (tok or '').strip()
+            if not t:
                 return False
-            if len(s) > 5:
+            if ' ' in t:
                 return False
-            if any(ch.isdigit() for ch in s):
+            if len(t) > 5:
                 return False
-            # časté kódy: DUK, SLA, SPA, "Ml."
-            return s.isupper() or s.endswith('.') or (len(s) <= 4 and s.replace('.', '').isalpha())
+            if re.match(r'^[A-Za-z]{1,4}\.?$', t):
+                return True
+            if t.isupper() and re.match(r'^[A-Z0-9]{2,5}$', t):
+                return True
+            return False
 
-        offset = 0
-        if (
-            len(parts) >= 3
-            and looks_like_code(parts[0])
-            and (' ' not in parts[0])
-            and (not looks_like_code(parts[1]))
-            and (not looks_like_code(parts[2]))
-            and (len(parts[1]) >= 4)
-            and (len(parts[2]) >= 4)
-        ):
-            offset = 1
+        # If first token is code and next token looks like a real name (longer / has space / diacritics)
+        if len(parts) >= 3 and _looks_like_code(parts[0]) and (len(parts[1]) >= 5 or ' ' in parts[1]):
+            parts = parts[1:]
 
-        home_idx = 0 + offset
-        away_idx = 1 + offset
-        if away_idx >= len(parts):
-            return None
+        # 2) Merge split team name like "Ml." + "Boleslav"
+        if len(parts) >= 3 and parts[0].endswith('.') and len(parts[0]) <= 4 and ' ' not in parts[1] and parts[1].isalpha():
+            merged = f"{parts[0]} {parts[1]}"
+            parts = [merged] + parts[2:]
 
-        result = {
-            'home_team': parts[home_idx],
-            'away_team': parts[away_idx],
+        result: Dict[str, Any] = {
+            'home_team': parts[0],
+            'away_team': parts[1],
         }
 
-        # skóre
-        score_idx = 2 + offset
-        if len(parts) > score_idx + 1:
+        # Score
+        # possible layouts:
+        #   home|away|hs|as|dt
+        #   home|away|dt
+        #   home|away|hs|as
+        if len(parts) >= 4:
             try:
-                result['home_score'] = int(parts[score_idx])
-                result['away_score'] = int(parts[score_idx + 1])
+                result['home_score'] = int(parts[2])
+                result['away_score'] = int(parts[3])
             except Exception:
                 pass
 
-        # datum/čas
-        dt_idx = 4 + offset
-        if len(parts) > dt_idx:
-            dt = _parse_datetime(parts[dt_idx])
+        # Datetime
+        if len(parts) >= 5:
+            dt = _parse_datetime(parts[4])
             if dt:
                 result['start_time'] = dt
 
         return result
+
 
 
     def _parse_datetime_first(line: str) -> Optional[Dict]:
@@ -12004,10 +11980,10 @@ function submitBulkDelete() {
     
         day, month = int(m.group(1)), int(m.group(2))
         hour, minute = int(m.group(3)), int(m.group(4))
-        year = now_local().year
+        year = datetime.now().year
     
         # Pokud je měsíc v minulosti, použij příští rok
-        if month < now_local().month:
+        if month < datetime.now().month:
             year += 1
     
         return {
@@ -12075,7 +12051,7 @@ function submitBulkDelete() {
                 dt = datetime.strptime(s, fmt)
                 # Pokud chybí rok, doplň aktuální
                 if dt.year == 1900:
-                    dt = dt.replace(year=now_local().year)
+                    dt = dt.replace(year=datetime.now().year)
                 return dt
             except:
                 continue
@@ -12083,102 +12059,112 @@ function submitBulkDelete() {
         return None
 
 
-def resolve_team_name(name: str, round_id: int = None) -> str:
-    """Jednotný resolver názvů týmů pro importéry.
+    def normalize_team_name(name: str, round_id: int = None) -> str:
+        """
+        🧠 Inteligentní normalizace jména týmu
+    
+        - Opraví běžné překlepy
+        - Doplní plný název (Slavia → SK Slavia Praha)
+        - Najde podobné týmy v databázi
+        """
+    
+        if name is None:
+            return ""
+        if isinstance(name, bool):
+            return ""
+        if not isinstance(name, str):
+            name = str(name)
+        name = name.strip()
+        name = name.replace("\u00a0", " ").replace("\t", " ").strip()
+        name = re.sub(r"\s+", " ", name)
+        # Normalize common Czech football prefix patterns
+        name = re.sub(r"\b1\.?\s*FC\b", "1. FC", name, flags=re.IGNORECASE)
+        name = re.sub(r"\bFK\b", "FK", name)
 
-    Cíl:
-    - ořezat bordel z copy/paste (NBSP, přebytečné mezery, omylem nalepené '|' atd.)
-    - sjednotit běžné zápisy (např. '1.FC' -> '1. FC')
-    - aplikovat TeamAlias (round-specific)
-    - fallback na direct match Team.name
-    - jemný fuzzy fallback (needle in tname / tname in needle)
-    """
-    s = (name or "")
-    # copy/paste artefakty
-    s = s.replace("\u00a0", " ")
-    s = s.strip().strip("|").strip()
-    s = re.sub(r"\s+", " ", s)
+        # Aliasy z DB (spravované v Admin UI)
+        if round_id:
+            try:
+                al = TeamAlias.query.filter_by(round_id=round_id, alias=name).first()
+                if not al:
+                    # case-insensitive match
+                    al = TeamAlias.query.filter(TeamAlias.round_id == round_id, db.func.lower(TeamAlias.alias) == name.lower()).first()
+                if al and al.canonical_name:
+                    return al.canonical_name
+            except Exception as e:
+                print(f"⚠️ Chyba v TeamAlias lookup: {e}")
+    
+        # Zkratky → plné názvy
+        short_to_full = {
+            # Zkratky / běžné názvy → názvy, které typicky chceš mít v DB
+            'Dukla': 'FK Dukla Praha',
+            'Slavia': 'SK Slavia Praha',
+            'Sparta': 'AC Sparta Praha',
+            'Ostrava': 'FC Baník Ostrava',
+            'Baník': 'FC Baník Ostrava',
 
-    # běžné normalizace zápisů
-    s = re.sub(r"\b1\.?\s*FC\b", "1. FC", s, flags=re.I)
-    s = re.sub(r"\bFK\s+", "FK ", s, flags=re.I)
-    s = re.sub(r"\bSK\s+", "SK ", s, flags=re.I)
-    s = re.sub(r"\bFC\s+", "FC ", s, flags=re.I)
-    s = re.sub(r"\s+", " ", s).strip()
+            'Liberec': 'FC Slovan Liberec',
+            'Hradec Kr.': 'FC Hradec Králové',
+            'Hradec': 'FC Hradec Králové',
 
-    # drobné mapy (jen tam, kde se to reálně plete)
-    _direct_map = {
-        "Ml. Boleslav": "Mladá Boleslav",
-        "Ml.Boleslav": "Mladá Boleslav",
-        "Hradec Kr.": "Hradec Králové",
-        "Hradec Kr": "Hradec Králové",
-    }
-    if s in _direct_map:
-        s = _direct_map[s]
+            'Ml. Boleslav': 'FK Mladá Boleslav',
+            'Mladá Boleslav': 'FK Mladá Boleslav',
+            'Jablonec': 'FK Jablonec',
 
-    if not round_id:
-        return s
+            'Pardubice': 'FK Pardubice',
+            'Teplice': 'FK Teplice',
 
-    # 1) TeamAlias (case-insensitive)
-    try:
-        alias_row = (
-            TeamAlias.query
-            .filter(TeamAlias.round_id == round_id)
-            .filter(db.func.lower(TeamAlias.alias) == s.lower())
-            .first()
-        )
-        if alias_row and alias_row.canonical_name:
-            return (alias_row.canonical_name or "").strip()
-    except Exception as e:
-        print(f"⚠️ resolve_team_name TeamAlias lookup failed: {e}")
+            'Karviná': 'MFK Karviná',
+            'Slovácko': '1.FC Slovácko',
 
-    # 2) direct Team match (case-insensitive)
-    try:
-        t = (
-            Team.query
-            .filter_by(round_id=round_id, is_deleted=False)
-            .filter(db.func.lower(Team.name) == s.lower())
-            .first()
-        )
-        if t and t.name:
-            return t.name.strip()
-    except Exception as e:
-        print(f"⚠️ resolve_team_name Team direct lookup failed: {e}")
+            'Zlín': 'FC Zlín',
+            'Plzeň': 'FC Viktoria Plzeň',
 
-    # 3) fallback heuristiky
-    try:
-        team_names = [
-            (t.name or "").strip()
-            for t in Team.query.filter_by(round_id=round_id, is_deleted=False).all()
-            if t and t.name
-        ]
-        needle = s.lower()
+            'Olomouc': 'SK Sigma Olomouc',
+            'Sigma': 'SK Sigma Olomouc',
 
-        # a) krátká zkratka typu "Ml." – zkus napasovat na začátek slova v názvu týmu
-        if len(s) <= 5 and s.endswith('.'):
-            ab = s.rstrip('.').lower()
-            cands = []
-            for tname in team_names:
-                words = re.split(r"\s+", tname.lower())
-                if any(w.startswith(ab) for w in words):
-                    cands.append(tname)
-            if len(cands) == 1:
-                return cands[0]
+            'Bohemians': 'Bohemians Praha 1905',
+        }
 
-        # b) include match (tolerantní)
-        for tname in team_names:
-            t_low = tname.lower()
-            if needle and (needle in t_low or t_low in needle):
-                return tname
-    except Exception as e:
-        print(f"⚠️ resolve_team_name fuzzy fallback failed: {e}")
+    
+        # Přesná shoda
+        if name in short_to_full:
+            return short_to_full[name]
+    
+        # Case-insensitive hledání
+        for short, full in short_to_full.items():
+            if name.lower() == short.lower():
+                return full
+            if name.lower() == full.lower():
+                return full
+    
+        # Částečná shoda
+        for short, full in short_to_full.items():
+            if short.lower() in name.lower() or name.lower() in short.lower():
+                return full
+        # Pokud je round_id, zkus najít v DB (fuzzy match na existující Team.name)
+        if round_id:
+            try:
+                if not isinstance(name, str):
+                    name = str(name)
 
-    return s
+                # Načti názvy týmů pro tuto soutěž
+                team_names = [
+                    (t.name or "").strip()
+                    for t in Team.query.filter_by(round_id=round_id, is_deleted=False).all()
+                    if t and t.name
+                ]
 
+                needle = name.lower()
+                for tname in team_names:
+                    t_low = tname.lower()
+                    if needle in t_low or t_low in needle:
+                        return tname
+            except Exception as e:
+                print(f"⚠️ Chyba v normalize_team_name: {e}")
+                pass
+        # Žádná shoda - vrať original
+        return name
 
-def normalize_team_name(name: str, round_id: int = None) -> str:
-    """Backward-compatible alias."""
-    return resolve_team_name(name, round_id=round_id)
 
     @app.route("/admin/smart-import", methods=["GET", "POST"])
     @login_required
@@ -12195,23 +12181,11 @@ def normalize_team_name(name: str, round_id: int = None) -> str:
         if request.method == "POST":
             action = request.form.get("action", "parse")
         
-            import_mode = request.form.get("import_mode", session.get('smart_import_mode', 'matches'))
             if action == "parse":
-                # zahodit případný předchozí preview session
-                old_sid = session.pop('smart_import_session_id', None)
-                if old_sid:
-                    try:
-                        imp_old = db.session.get(ImportSession, old_sid)
-                        if imp_old and imp_old.created_by_user_id == current_user.id:
-                            db.session.delete(imp_old)
-                            db.session.commit()
-                    except Exception as e:
-                        print(f"⚠️ ImportSession cleanup failed: {e}")
                 # KROK 1: Parsování
                 text = request.form.get("raw_text", "")
                 round_id = request.form.get("round_id")
             
-                session['smart_import_mode'] = import_mode
                 if not text.strip():
                     flash("❌ Zadej nějaký text k parsování!", "error")
                     return redirect(url_for("admin_smart_import"))
@@ -12229,25 +12203,18 @@ def normalize_team_name(name: str, round_id: int = None) -> str:
                         m['home_team'] = normalize_team_name(m['home_team'], int(round_id))
                         m['away_team'] = normalize_team_name(m['away_team'], int(round_id))
             
-                # Ulož server-side preview (ImportSession) – bezpečné i na multi-worker hostingu
+                # Store preview server-side (DB) – v cookie jen ID (spolehlivé i na multi-worker hostingu)
                 try:
-                    imp = ImportSession(
-                        id=str(uuid.uuid4()),
-                        created_by_user_id=current_user.id,
-                        kind="smart_import",
-                        round_id=int(round_id) if round_id else None,
-                        mode=import_mode or "matches",
-                        payload_json=json.dumps(matches, ensure_ascii=False),
-                    )
+                    payload = json.dumps({"round_id": round_id, "matches": matches}, ensure_ascii=False)
+                    imp = ImportSession(user_id=current_user.id, kind="smart_import_matches", payload_json=payload)
                     db.session.add(imp)
                     db.session.commit()
                     session['smart_import_session_id'] = imp.id
                     session['import_round_id'] = round_id
                 except Exception as e:
-                    print(f"⚠️ ImportSession save failed: {e}")
-                    # fallback (není ideální, ale ať to aspoň běží)
-                    session['parsed_matches'] = matches
-                    session['import_round_id'] = round_id
+                    db.session.rollback()
+                    flash(f"❌ Nepodařilo se uložit preview importu: {e}", "error")
+                    return redirect(url_for("admin_smart_import"))
             
                 flash(f"✅ Naparsováno {len(matches)} zápasů! Zkontroluj a uprav pokud potřeba.", "ok")
                 return redirect(url_for("admin_smart_import") + "?preview=1")
@@ -12257,7 +12224,6 @@ def normalize_team_name(name: str, round_id: int = None) -> str:
                 matches_json = request.form.get("matches_data", "[]")
                 round_id = request.form.get("round_id")
             
-                import_mode = request.form.get("import_mode", session.get('smart_import_mode','matches'))
                 if not round_id:
                     flash("❌ Vyber soutěž/kolo!", "error")
                     return redirect(url_for("admin_smart_import"))
@@ -12336,17 +12302,6 @@ def normalize_team_name(name: str, round_id: int = None) -> str:
                                 away_score = int(away_score)
                             except:
                                 away_score = None
-
-                        # Import mode handling
-                        if import_mode == 'matches':
-                            # Fixtures import: always clear scores
-                            home_score = None
-                            away_score = None
-                        else:
-                            # Results import: require both scores
-                            if home_score is None or away_score is None:
-                                skipped += 1
-                                continue
                     
                         # Debug log before creating Match
                         print(f"🔍 Match data:")
@@ -12400,41 +12355,6 @@ def normalize_team_name(name: str, round_id: int = None) -> str:
                             db.session.add(away_team_obj)
                             db.session.flush()
 
-                        # Results mode: try to update existing match (instead of creating a new one)
-                        if import_mode != 'matches':
-                            candidates = Match.query.filter_by(
-                                round_id=round_id_int,
-                                home_team_id=home_team_obj.id,
-                                away_team_id=away_team_obj.id,
-                                is_deleted=False
-                            ).all()
-
-                            target = None
-                            if candidates:
-                                if start_time:
-                                    def _diff_seconds(mm: Match) -> float:
-                                        if not mm.start_time:
-                                            return 1e18
-                                        try:
-                                            return abs((mm.start_time - start_time).total_seconds())
-                                        except Exception:
-                                            return 1e18
-                                    target = min(candidates, key=_diff_seconds)
-                                else:
-                                    target = candidates[0]
-
-                            if target:
-                                target.home_score = home_score
-                                target.away_score = away_score
-                                if start_time and not target.start_time:
-                                    target.start_time = start_time
-                                imported += 1
-                                print(f"✅ Aktualizován výsledek: {home_team} - {away_team} ({home_score}:{away_score})")
-                                continue
-                            else:
-                                errors.append(f"Nenalezen zápas pro výsledek: {home_team}-{away_team}")
-
-                        # Fixtures mode (or fallback): create match
                         m = Match(
                             round_id=round_id_int,
                             home_team_id=home_team_obj.id,
@@ -12443,7 +12363,11 @@ def normalize_team_name(name: str, round_id: int = None) -> str:
                             home_score=home_score,
                             away_score=away_score,
                         )
-
+                        
+                        print(f"🔍 Match object created: {m}")
+                        print(f"🔍 Match type: {type(m)}")
+                        print(f"🔍 Match.__dict__: {m.__dict__}")
+                    
                         db.session.add(m)
                         
                         # Flush immediately to catch errors
@@ -12473,18 +12397,9 @@ def normalize_team_name(name: str, round_id: int = None) -> str:
                     flash(f"❌ Chyba při ukládání do databáze: {str(e)}", "error")
                     return redirect(url_for("admin_smart_import"))
             
-                # Clear session + server-side preview
+                # Clear session
                 session.pop('parsed_matches', None)
                 session.pop('import_round_id', None)
-                sid = session.pop('smart_import_session_id', None)
-                if sid:
-                    try:
-                        imp = db.session.get(ImportSession, sid)
-                        if imp and imp.created_by_user_id == current_user.id:
-                            db.session.delete(imp)
-                            db.session.commit()
-                    except Exception as e:
-                        print(f"⚠️ ImportSession delete failed: {e}")
             
                 if errors:
                     flash(f"⚠️ Importováno {imported} zápasů, přeskočeno {skipped}, {len(errors)} chyb: {', '.join(errors[:3])}", "warning")
@@ -12494,33 +12409,31 @@ def normalize_team_name(name: str, round_id: int = None) -> str:
                     flash(f"✅ Úspěšně importováno {imported} zápasů!", "ok")
             
                 audit("smart_import", "Match", None, count=imported, round=round_name)
-
-                # pokud se importovaly výsledky, přepočti cache bodů
-                if import_mode == "results" and imported > 0:
-                    try:
-                        recompute_round_scores(int(round_id))
-                    except Exception as e:
-                        print(f"⚠️ recompute_round_scores failed: {e}")
-
+            
                 return redirect(url_for("admin_rounds"))
     
         # GET request
         preview_mode = request.args.get("preview") == "1"
+        parsed_matches: List[Dict[str, Any]] = []
         import_round_id = session.get('import_round_id')
 
-        parsed_matches = []
-        sid = session.get("smart_import_session_id")
-        if sid:
-            imp = db.session.get(ImportSession, sid)
-            if imp and imp.created_by_user_id == current_user.id:
-                parsed_matches = imp.get_payload()
+        if preview_mode:
+            sid = session.get('smart_import_session_id')
+            if sid:
+                imp = db.session.get(ImportSession, int(sid))
+                if imp and imp.user_id == current_user.id and imp.kind == "smart_import_matches":
+                    try:
+                        payload = json.loads(imp.payload_json or "{}")
+                        import_round_id = payload.get("round_id", import_round_id)
+                        parsed_matches = payload.get("matches", []) or []
+                    except Exception:
+                        parsed_matches = []
     
         return render_template_string(SMART_IMPORT_TEMPLATE,
                                       rounds=rounds,
                                       preview_mode=preview_mode,
                                       parsed_matches=parsed_matches,
-                                      import_round_id=import_round_id,
-                                      smart_import_mode=session.get('smart_import_mode','matches'))
+                                      import_round_id=import_round_id)
 
 
     # Template pro Smart Import
@@ -12733,22 +12646,7 @@ def normalize_team_name(name: str, round_id: int = None) -> str:
               </select>
               <div class="muted">Pomůže s automatickou normalizací názvů týmů</div>
             </div>
-
-            <div class="form-group">
-              <label>Režim importu *</label>
-              <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
-                <label style="display:flex; gap:8px; align-items:center;">
-                  <input type="radio" name="import_mode" value="matches" {% if smart_import_mode != 'results' %}checked{% endif %}>
-                  <span>📅 Nahrát zápasy (bez výsledků)</span>
-                </label>
-                <label style="display:flex; gap:8px; align-items:center;">
-                  <input type="radio" name="import_mode" value="results" {% if smart_import_mode == 'results' %}checked{% endif %}>
-                  <span>✅ Nahrát výsledky (aktualizace existujících zápasů)</span>
-                </label>
-              </div>
-              <div class="muted">Tip: Zápasy nahraj nejdřív jako „bez výsledků“, po odehrání použij „výsledky“.</div>
-            </div>
-
+        
             <div class="form-group">
               <label>Nakopíruj zápasy *</label>
               <textarea name="raw_text" placeholder="Paste sem zápasy v jakémkoliv formátu...
@@ -12772,29 +12670,20 @@ def normalize_team_name(name: str, round_id: int = None) -> str:
         <div class="card">
           <h1>✅ Preview - zkontroluj a uprav</h1>
           <p class="subtitle">Naparsováno {{ parsed_matches|length }} zápasů</p>
-          <div class="btn-group" style="justify-content:flex-start; margin-top:10px; margin-bottom:10px;">
-            <button type="button" class="btn btn-success" id="selectAllBtn">✓ Vybrat vše</button>
-            <button type="button" class="btn" id="selectNoneBtn" style="background:#6c757d; color:white;">✗ Zrušit výběr</button>
-          </div>
-          {% if smart_import_mode == 'results' %}
-            <div class="muted">Režim: <strong>Výsledky</strong>. Nahraj jen zápasy se skóre (jinak budou přeskočeny).</div>
-          {% else %}
-            <div class="muted">Režim: <strong>Zápasy</strong>. Skóre bude ignorováno a nastaveno na prázdné.</div>
-          {% endif %}
-
       
           <form method="POST" id="importForm">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="import">
             <input type="hidden" name="round_id" value="{{ import_round_id }}">
-            <input type="hidden" name="import_mode" value="{{ smart_import_mode }}">
             <input type="hidden" name="matches_data" id="matchesData">
         
             <table class="preview-table" id="previewTable">
               <thead>
                 <tr>
                   <th style="width: 30px;">#</th>
-                  <th style="width: 60px;">Vybrat</th>
+                  <th style="width: 46px; text-align:center;">
+                    <input type="checkbox" id="selectAllMatches" checked title="Vybrat vše">
+                  </th>
                   <th>Domácí</th>
                   <th>Hosté</th>
                   <th style="width: 80px;">Skóre D</th>
@@ -12805,19 +12694,19 @@ def normalize_team_name(name: str, round_id: int = None) -> str:
               <tbody>
                 {% for match in parsed_matches %}
                 <tr data-index="{{ loop.index0 }}">
-                  <td style="width:30px;">{{ loop.index }}</td>
-                  <td style="width:60px; text-align:center;">
-                    <input type="checkbox" class="match-checkbox" checked>
+                  <td>{{ loop.index }}</td>
+                  <td style="text-align:center;">
+                    <input type="checkbox" class="match-select" checked>
                   </td>
                   <td>
-                    <input type="text"
-                           class="home-team"
+                    <input type="text" 
+                           class="home-team" 
                            value="{{ match.home_team }}"
                            data-original="{{ match.home_team }}">
                   </td>
                   <td>
-                    <input type="text"
-                           class="away-team"
+                    <input type="text" 
+                           class="away-team" 
                            value="{{ match.away_team }}"
                            data-original="{{ match.away_team }}">
                   </td>
@@ -12853,13 +12742,21 @@ def normalize_team_name(name: str, round_id: int = None) -> str:
         </div>
     
         <script>
-          // Collect data before submit
+                    // Select/Deselect all
+          const selAll = document.getElementById('selectAllMatches');
+          if (selAll) {
+            selAll.addEventListener('change', function() {
+              const checked = !!this.checked;
+              document.querySelectorAll('.match-select').forEach(cb => { cb.checked = checked; });
+            });
+          }
+
+// Collect data before submit
           document.getElementById('importForm').addEventListener('submit', function(e) {
             const matches = [];
             document.querySelectorAll('#previewTable tbody tr').forEach((row, index) => {
-              const cb = row.querySelector('.match-checkbox');
-              if (cb && !cb.checked) return;
-
+              const isChecked = row.querySelector('.match-select') ? row.querySelector('.match-select').checked : true;
+              if (!isChecked) return;
               const homeTeam = row.querySelector('.home-team').value.trim();
               const awayTeam = row.querySelector('.away-team').value.trim();
           
@@ -13576,13 +13473,6 @@ function validateDelete() {
         m.away_score = int(away_score_val) if away_score_val else None
 
         db.session.commit()
-
-        # Přepočti cache bodů v kole (výsledek se změnil)
-        try:
-            recompute_round_scores(m.round_id)
-        except Exception as e:
-            print(f"⚠️ recompute_round_scores failed: {e}")
-
         audit("match.quick_score", "Match", m.id, home=m.home_score, away=m.away_score)
         flash(f"Výsledek uložen: {m.home_team.name} {m.home_score or '-'}:{m.away_score or '-'} {m.away_team.name}", "ok")
         return redirect(url_for("leaderboard"))
@@ -14544,13 +14434,6 @@ function validateDelete() {
                     updated_count += 1
         
         db.session.commit()
-
-        # Přepočti cache bodů v kole (výsledky se mohly změnit)
-        try:
-            recompute_round_scores(rid)
-        except Exception as e:
-            print(f"⚠️ recompute_round_scores failed: {e}")
-
         audit("bulk_edit.save", "Match", None, details=f"Updated {updated_count} matches")
         
         # Pošli push notifikace o zadaných výsledcích
@@ -18936,165 +18819,6 @@ toggleImportTarget();
         else:
             return jsonify({"success": False, "message": "❌ Žádná aktivní subscription"}), 400
     
-
-    # =========================================================
-    # NOTIFICATION SCHEDULER (best-effort polling)
-    # =========================================================
-    def _run_scheduled_notifications():
-        """Best-effort scheduler: runs quickly, safe to call often."""
-        try:
-            now = now_local()
-            # deadline window: between 55 and 65 minutes before close
-            window_from = now + timedelta(minutes=55)
-            window_to = now + timedelta(minutes=65)
-
-            rounds = Round.query.filter(Round.is_archived == False).all()
-            for r in rounds:
-                if r.tips_close_time and window_from <= r.tips_close_time <= window_to:
-                    send_deadline_reminder(r.id, kind="deadline_tips", close_time=r.tips_close_time)
-                if r.extra_close_time and window_from <= r.extra_close_time <= window_to:
-                    send_deadline_reminder(r.id, kind="deadline_extra", close_time=r.extra_close_time)
-        except Exception:
-            db.session.rollback()
-
-    def _maybe_run_scheduler():
-        """Run at most once per 5 minutes per instance."""
-        if os.environ.get("ENABLE_NOTIFICATION_POLLING", "1") == "0":
-            return
-        try:
-            os.makedirs(app.instance_path, exist_ok=True)
-            stamp_path = os.path.join(app.instance_path, ".notif_last_run")
-            now_ts = int(time.time())
-            last = 0
-            try:
-                with open(stamp_path, "r", encoding="utf-8") as f:
-                    last = int((f.read() or "0").strip() or "0")
-            except Exception:
-                last = 0
-            if now_ts - last < 300:
-                return
-            _run_scheduled_notifications()
-            with open(stamp_path, "w", encoding="utf-8") as f:
-                f.write(str(now_ts))
-        except Exception:
-            pass
-
-    @app.before_request
-    def _notif_poll_before_request():
-        if current_user.is_authenticated:
-            _maybe_run_scheduler()
-
-    # =========================================================
-    # ADMIN: NOTIFICATIONS DIAGNOSTICS
-    # =========================================================
-    @app.route("/admin/notifications", methods=["GET", "POST"])
-    @login_required
-    @admin_required
-    def admin_notifications():
-        if request.method == "POST":
-            action = request.form.get("action", "")
-            if action == "run_scheduler":
-                _run_scheduled_notifications()
-                flash("Scheduler spusten.", "success")
-                return redirect(url_for("admin_notifications"))
-            if action == "test_push":
-                send_push_notification(current_user.id, "Test notifikace", f"Test {now_local().strftime('%d.%m.%Y %H:%M:%S')}", {"url": "/"})
-                flash("Test notifikace odeslana (pokud mas subscription).", "info")
-                return redirect(url_for("admin_notifications"))
-
-        try:
-            pywebpush_ok = True
-            try:
-                from pywebpush import webpush  # noqa: F401
-            except Exception:
-                pywebpush_ok = False
-
-            total_subs = PushSubscription.query.count()
-            enabled_subs = PushSubscription.query.filter_by(enabled=True).count()
-
-            users = User.query.order_by(User.username.asc()).all()
-            per_user = []
-            for u in users:
-                tot = PushSubscription.query.filter_by(user_id=u.id).count()
-                en = PushSubscription.query.filter_by(user_id=u.id, enabled=True).count()
-                per_user.append({"user": u, "enabled": en, "total": tot})
-        except Exception:
-            db.session.rollback()
-            pywebpush_ok = False
-            total_subs = enabled_subs = 0
-            per_user = []
-
-        return render_page(
-            """<div class="container mt-4">
-  <h2>Notifikace - diagnostika</h2>
-
-  <div class="card mb-3">
-    <div class="card-body">
-      <div><b>pywebpush:</b> {{ "OK" if pywebpush_ok else "CHYBI (pip install pywebpush)" }}</div>
-      <div><b>Subscriptions:</b> {{ enabled_subs }} aktivnich / {{ total_subs }} celkem</div>
-      <div><b>VAPID:</b> public={{ (VAPID_PUBLIC_KEY|length) if VAPID_PUBLIC_KEY else 0 }} chars, private={{ (VAPID_PRIVATE_KEY|length) if VAPID_PRIVATE_KEY else 0 }} chars</div>
-      <div><b>Server cas:</b> {{ now_local().strftime("%d.%m.%Y %H:%M:%S") }}</div>
-
-      <form method="post" class="mt-3 d-flex gap-2 flex-wrap">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button name="action" value="run_scheduler" class="btn btn-primary">Spustit scheduler ted</button>
-        <button name="action" value="test_push" class="btn btn-outline-secondary">Poslat test sobe</button>
-      </form>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header"><b>Subscriptions podle uzivatelu</b></div>
-    <div class="card-body p-0">
-      <table class="table table-striped mb-0">
-        <thead>
-          <tr>
-            <th>Uzivatel</th>
-            <th>Aktivni / Celkem</th>
-            <th style="width: 180px;">Akce</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in per_user %}
-            <tr>
-              <td>{{ row.user.username }} <span class="text-muted">(#{{ row.user.id }})</span></td>
-              <td>{{ row.enabled }} / {{ row.total }}</td>
-              <td>
-                <form method="post" action="{{ url_for('admin_notifications_test_user') }}" class="m-0">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <input type="hidden" name="user_id" value="{{ row.user.id }}">
-                  <button class="btn btn-sm btn-outline-primary" {% if row.enabled == 0 %}disabled{% endif %}>Test uzivateli</button>
-                </form>
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-</div>""",
-            pywebpush_ok=pywebpush_ok,
-            total_subs=total_subs,
-            enabled_subs=enabled_subs,
-            per_user=per_user,
-            VAPID_PUBLIC_KEY=VAPID_PUBLIC_KEY,
-            VAPID_PRIVATE_KEY=VAPID_PRIVATE_KEY,
-            now_local=now_local,
-        )
-
-    @app.route("/admin/notifications/test-user", methods=["POST"], endpoint="admin_notifications_test_user")
-    @login_required
-    @admin_required
-    def admin_notifications_test_user():
-        uid = request.form.get("user_id", type=int)
-        if not uid:
-            flash("Chybi user_id.", "danger")
-            return redirect(url_for("admin_notifications"))
-        send_push_notification(uid, "Test notifikace", f"Test {now_local().strftime('%d.%m.%Y %H:%M:%S')}", {"url": "/"})
-        flash("Test odeslan (pokud ma uzivatel aktivni subscription).", "info")
-        return redirect(url_for("admin_notifications"))
-
     # --- NOTIFICATION SETTINGS ---
     @app.route("/notification-settings")
     @login_required
