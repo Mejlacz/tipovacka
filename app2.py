@@ -3354,6 +3354,20 @@ BASE_HTML = r"""
   </div>
   
   <script>
+          // Select all/none helpers
+          const _selAllBtn = document.getElementById('selectAllBtn');
+          const _selNoneBtn = document.getElementById('selectNoneBtn');
+          if (_selAllBtn) {
+            _selAllBtn.addEventListener('click', () => {
+              document.querySelectorAll('.match-checkbox').forEach(cb => cb.checked = true);
+            });
+          }
+          if (_selNoneBtn) {
+            _selNoneBtn.addEventListener('click', () => {
+              document.querySelectorAll('.match-checkbox').forEach(cb => cb.checked = false);
+            });
+          }
+
     // Mobile menu toggle
     function toggleMobileMenu() {
       const nav = document.getElementById('mobile-nav');
@@ -6754,6 +6768,9 @@ function toggleCollapse(header) {
             {% set my_tip = tip_map.get(m.id) %}
             <tr class="match-row {% if my_tip %}has-tip{% endif %} {% if locked %}locked{% endif %}">
               <td>{{ loop.index }}</td>
+                  <td style="text-align:center;">
+                    <input type="checkbox" class="match-checkbox" checked>
+                  </td>
               <td><strong class="team-name">{{ m.home_team.name if m.home_team else '?' }}</strong></td>
               <td style="text-align: center;">
                 <input type="number" 
@@ -12126,11 +12143,13 @@ function submitBulkDelete() {
         if request.method == "POST":
             action = request.form.get("action", "parse")
         
+            import_mode = request.form.get("import_mode", session.get('smart_import_mode', 'matches'))
             if action == "parse":
                 # KROK 1: Parsování
                 text = request.form.get("raw_text", "")
                 round_id = request.form.get("round_id")
             
+                session['smart_import_mode'] = import_mode
                 if not text.strip():
                     flash("❌ Zadej nějaký text k parsování!", "error")
                     return redirect(url_for("admin_smart_import"))
@@ -12160,6 +12179,7 @@ function submitBulkDelete() {
                 matches_json = request.form.get("matches_data", "[]")
                 round_id = request.form.get("round_id")
             
+                import_mode = request.form.get("import_mode", session.get('smart_import_mode','matches'))
                 if not round_id:
                     flash("❌ Vyber soutěž/kolo!", "error")
                     return redirect(url_for("admin_smart_import"))
@@ -12238,6 +12258,17 @@ function submitBulkDelete() {
                                 away_score = int(away_score)
                             except:
                                 away_score = None
+
+                        # Import mode handling
+                        if import_mode == 'matches':
+                            # Fixtures import: always clear scores
+                            home_score = None
+                            away_score = None
+                        else:
+                            # Results import: require both scores
+                            if home_score is None or away_score is None:
+                                skipped += 1
+                                continue
                     
                         # Debug log before creating Match
                         print(f"🔍 Match data:")
@@ -12291,6 +12322,41 @@ function submitBulkDelete() {
                             db.session.add(away_team_obj)
                             db.session.flush()
 
+                        # Results mode: try to update existing match (instead of creating a new one)
+                        if import_mode != 'matches':
+                            candidates = Match.query.filter_by(
+                                round_id=round_id_int,
+                                home_team_id=home_team_obj.id,
+                                away_team_id=away_team_obj.id,
+                                is_deleted=False
+                            ).all()
+
+                            target = None
+                            if candidates:
+                                if start_time:
+                                    def _diff_seconds(mm: Match) -> float:
+                                        if not mm.start_time:
+                                            return 1e18
+                                        try:
+                                            return abs((mm.start_time - start_time).total_seconds())
+                                        except Exception:
+                                            return 1e18
+                                    target = min(candidates, key=_diff_seconds)
+                                else:
+                                    target = candidates[0]
+
+                            if target:
+                                target.home_score = home_score
+                                target.away_score = away_score
+                                if start_time and not target.start_time:
+                                    target.start_time = start_time
+                                imported += 1
+                                print(f"✅ Aktualizován výsledek: {home_team} - {away_team} ({home_score}:{away_score})")
+                                continue
+                            else:
+                                errors.append(f"Nenalezen zápas pro výsledek: {home_team}-{away_team}")
+
+                        # Fixtures mode (or fallback): create match
                         m = Match(
                             round_id=round_id_int,
                             home_team_id=home_team_obj.id,
@@ -12299,11 +12365,7 @@ function submitBulkDelete() {
                             home_score=home_score,
                             away_score=away_score,
                         )
-                        
-                        print(f"🔍 Match object created: {m}")
-                        print(f"🔍 Match type: {type(m)}")
-                        print(f"🔍 Match.__dict__: {m.__dict__}")
-                    
+
                         db.session.add(m)
                         
                         # Flush immediately to catch errors
@@ -12357,7 +12419,8 @@ function submitBulkDelete() {
                                       rounds=rounds,
                                       preview_mode=preview_mode,
                                       parsed_matches=parsed_matches,
-                                      import_round_id=import_round_id)
+                                      import_round_id=import_round_id,
+                                      smart_import_mode=session.get('smart_import_mode','matches'))
 
 
     # Template pro Smart Import
@@ -12570,7 +12633,22 @@ function submitBulkDelete() {
               </select>
               <div class="muted">Pomůže s automatickou normalizací názvů týmů</div>
             </div>
-        
+
+            <div class="form-group">
+              <label>Režim importu *</label>
+              <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
+                <label style="display:flex; gap:8px; align-items:center;">
+                  <input type="radio" name="import_mode" value="matches" {% if smart_import_mode != 'results' %}checked{% endif %}>
+                  <span>📅 Nahrát zápasy (bez výsledků)</span>
+                </label>
+                <label style="display:flex; gap:8px; align-items:center;">
+                  <input type="radio" name="import_mode" value="results" {% if smart_import_mode == 'results' %}checked{% endif %}>
+                  <span>✅ Nahrát výsledky (aktualizace existujících zápasů)</span>
+                </label>
+              </div>
+              <div class="muted">Tip: Zápasy nahraj nejdřív jako „bez výsledků“, po odehrání použij „výsledky“.</div>
+            </div>
+
             <div class="form-group">
               <label>Nakopíruj zápasy *</label>
               <textarea name="raw_text" placeholder="Paste sem zápasy v jakémkoliv formátu...
@@ -12594,17 +12672,29 @@ function submitBulkDelete() {
         <div class="card">
           <h1>✅ Preview - zkontroluj a uprav</h1>
           <p class="subtitle">Naparsováno {{ parsed_matches|length }} zápasů</p>
+          <div class="btn-group" style="justify-content:flex-start; margin-top:10px; margin-bottom:10px;">
+            <button type="button" class="btn btn-success" id="selectAllBtn">✓ Vybrat vše</button>
+            <button type="button" class="btn" id="selectNoneBtn" style="background:#6c757d; color:white;">✗ Zrušit výběr</button>
+          </div>
+          {% if smart_import_mode == 'results' %}
+            <div class="muted">Režim: <strong>Výsledky</strong>. Nahraj jen zápasy se skóre (jinak budou přeskočeny).</div>
+          {% else %}
+            <div class="muted">Režim: <strong>Zápasy</strong>. Skóre bude ignorováno a nastaveno na prázdné.</div>
+          {% endif %}
+
       
           <form method="POST" id="importForm">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="import">
             <input type="hidden" name="round_id" value="{{ import_round_id }}">
+            <input type="hidden" name="import_mode" value="{{ smart_import_mode }}">
             <input type="hidden" name="matches_data" id="matchesData">
         
             <table class="preview-table" id="previewTable">
               <thead>
                 <tr>
                   <th style="width: 30px;">#</th>
+                  <th style="width: 60px;">Vybrat</th>
                   <th>Domácí</th>
                   <th>Hosté</th>
                   <th style="width: 80px;">Skóre D</th>
@@ -12664,6 +12754,9 @@ function submitBulkDelete() {
           document.getElementById('importForm').addEventListener('submit', function(e) {
             const matches = [];
             document.querySelectorAll('#previewTable tbody tr').forEach((row, index) => {
+              const cb = row.querySelector('.match-checkbox');
+              if (cb && !cb.checked) return;
+
               const homeTeam = row.querySelector('.home-team').value.trim();
               const awayTeam = row.querySelector('.away-team').value.trim();
           
