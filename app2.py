@@ -1,232 +1,35 @@
-# app_tipovacka3_all_1_8.py
-from __future__ import annotations
-
-import csv
-import io
-import json
-import os
-import re
-import hashlib
-import secrets
-import smtplib
-import tempfile
-import uuid
-import requests
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from typing import Any, Dict, List, Optional, Tuple
-from zoneinfo import ZoneInfo
-
-from flask import (
-    Flask,
-    Response,
-    abort,
-    flash,
-    jsonify,
-    redirect,
-    render_template_string,
-    request,
-    send_file,
-    session,
-    url_for,
-)
-from flask_login import (
-    LoginManager,
-    UserMixin,
-    current_user,
-    login_required,
-    login_user,
-    logout_user,
-)
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.exc import OperationalError, IntegrityError
-from flask_wtf.csrf import CSRFProtect, generate_csrf
-from werkzeug.security import check_password_hash, generate_password_hash
-
-# =========================================================
-# BODY 1–8 (v jedné verzi)
-# 1) Login/registrace + admin role
-# 2) Přepínač soutěže (globální dropdown)
-# 3) Správa soutěží (sport, aktivace, uzávěrky tipů/extra)
-# 4) Týmy per soutěž + tabulka/standing
-# 5) Zápasy (admin CRUD) + tipování + bodování
-# 6) Extra otázky + odpovědi + uzávěrka
-# 7) Exporty CSV (žebříček, zápasy, týmy, extra)
-# 8) Hromadný import CSV (týmy, zápasy s round/round_id, extra) + audit log
-# =========================================================
-
-# =========================================================
-# KONFIG (uprav si jen tyhle dvě položky)
-# =========================================================
-OWNER_ADMIN_EMAIL = "3049@email.cz"          # owner (jen ty) – vidí tajného usera, má plná práva
-SECRET_USER_EMAIL = "kubamartinec97@gmail.com"          # tajný user (skrytý v admin přehledu pro jiné adminy)
-
-# =========================================================
-# APP + EXTENSIONS
-# =========================================================
-db = SQLAlchemy()
-login_manager = LoginManager()
-login_manager.login_view = "login"
-csrf = CSRFProtect()
-
-
-def _init_db_once(app: Flask) -> None:
-    """
-    Initialize DB schema exactly once per deploy/start.
-    This prevents concurrent gunicorn workers from racing on db.create_all()/seeding.
-    Uses an atomic lock file in instance_path.
-    """
-    instance_path = app.instance_path
-    os.makedirs(instance_path, exist_ok=True)
-
-    done_path = os.path.join(instance_path, ".db_init_done")
-    lock_path = os.path.join(instance_path, ".db_init_lock")
-
-    # If already initialized, do nothing
-    if os.path.exists(done_path):
-        return
-
-    # If lock exists and is stale (older than 10 minutes), remove it
-    try:
-        if os.path.exists(lock_path):
-            mtime = os.path.getmtime(lock_path)
-            if (datetime.utcnow().timestamp() - mtime) > 600:
-                try:
-                    os.remove(lock_path)
-                except Exception:
-                    pass
-    except Exception:
-        pass
-
-    # Try to acquire lock atomically
-    try:
-        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-    except FileExistsError:
-        # Another worker is initializing; skip
-        return
-    except Exception:
-        # If we cannot lock for any reason, fall back to best-effort init (guarded)
-        fd = None
-
-    try:
-        with app.app_context():
-            try:
-                db.create_all()
-            except OperationalError as e:
-                # Common when two processes race or table already exists.
-                msg = str(e).lower()
-                if "already exists" not in msg:
-                    raise
-
-            # Keep existing idempotent init steps
-            try:
-                ensure_sqlite_schema()
-            except Exception:
-                # keep app booting; schema helper should be idempotent
-                pass
-
-            try:
-                seed_defaults_if_empty()
-            except IntegrityError:
-                # In case of race on first seed, ignore unique constraint conflicts
-                db.session.rollback()
-            except Exception:
-                try:
-                    db.session.rollback()
-                except Exception:
-                    pass
-
-        # Mark done
-        try:
-            with open(done_path, "w", encoding="utf-8") as f:
-                f.write(datetime.utcnow().isoformat() + "Z")
-        except Exception:
-            pass
-    finally:
-        try:
-            if fd is not None:
-                os.close(fd)
-        except Exception:
-            pass
-        try:
-            if os.path.exists(lock_path):
-                os.remove(lock_path)
-        except Exception:
-            pass
-
-
-
-# =========================================================
-# ENDPOINT COMPAT HELPERS (aliases for templates)
-# =========================================================
-def _ensure_endpoint(app: Flask, endpoint: str, preferred_rule: str, view_func, methods: Tuple[str, ...] = ("GET",)) -> None:
-    """Ensure an endpoint exists (some templates use fixed endpoint names).
-    If the preferred URL rule is already taken, register under a safe '-alias' URL.
-    """
-    if endpoint in app.view_functions:
-        return
-
-    existing_rules = {r.rule for r in app.url_map.iter_rules()}
-    rule = preferred_rule if preferred_rule not in existing_rules else preferred_rule + "-alias"
-    app.add_url_rule(rule, endpoint=endpoint, view_func=view_func, methods=list(methods))
-
-
-def _ensure_template_endpoints(app: Flask) -> None:
-    """Fix BuildError in Jinja templates when endpoint names differ."""
-
-    # admin dashboard endpoint expected by some templates
-    if "admin_dashboard" not in app.view_functions:
-        def _admin_dashboard_alias():
-            # Prefer the real admin dashboard URL if it exists
-            try:
-                return redirect("/admin/dashboard")
-            except Exception:
-                return redirect(url_for("dashboard"))
-        _ensure_endpoint(app, "admin_dashboard", "/admin/dashboard-alias", _admin_dashboard_alias)
-
-    # PWA manifest endpoint expected by BASE_HTML / error templates
-    if "pwa_manifest" not in app.view_functions:
-        def _pwa_manifest_stub():
-            manifest = {
-                "name": "Tipovačka",
-                "short_name": "Tipovačka",
-                "start_url": "/",
-                "display": "standalone",
-                "background_color": "#0b1020",
-                "theme_color": "#0b1020",
-                "icons": [],
-            }
-            return jsonify(manifest)
-        _ensure_endpoint(app, "pwa_manifest", "/manifest.json", _pwa_manifest_stub)
-
-    # Service worker route expected by BASE_HTML
-    if "service_worker" not in app.view_functions:
-        def _service_worker_stub():
-            js = """// minimal service worker (fallback)
-self.addEventListener('install', (event) => { self.skipWaiting(); });
-self.addEventListener('activate', (event) => { event.waitUntil(self.clients.claim()); });
-self.addEventListener('fetch', (event) => { /* passthrough */ });
-"""
-            return Response(js, mimetype="application/javascript")
-        _ensure_endpoint(app, "service_worker", "/service-worker.js", _service_worker_stub)
-
-    # PWA icon route used by manifest
-    if "pwa_icon" not in app.view_functions:
-        def _pwa_icon_stub(size: int):
-            # 1x1 transparent PNG
-            png = (
-                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-                b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
-                b"\x0d\n\x2d\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
-            )
-            return Response(png, mimetype="image/png")
-        _ensure_endpoint(app, "pwa_icon", "/pwa-icon/<int:size>", _pwa_icon_stub)
-
-
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
+
+
+    # -----------------------------------------------------------------
+    # SAFE url_for: prevent BuildError from crashing pages when an optional
+    # admin/PWA endpoint is missing (e.g. after partial merges).
+    # -----------------------------------------------------------------
+    from werkzeug.routing import BuildError as _BuildError
+    from flask import url_for as _flask_url_for
+
+    _ENDPOINT_ALIASES = {
+        # admin aliases
+        "admin_dashboard": "dashboard",
+        "admin_rounds": "dashboard",
+        "admin_bulk_edit": "dashboard",
+    }
+
+    def safe_url_for(endpoint: str, **values):
+        try:
+            return _flask_url_for(endpoint, **values)
+        except _BuildError:
+            alt = _ENDPOINT_ALIASES.get(endpoint)
+            if alt and alt != endpoint:
+                try:
+                    return _flask_url_for(alt, **values)
+                except _BuildError:
+                    pass
+            return "#"
+
+    # Override Jinja's url_for globally (templates call url_for directly)
+    app.jinja_env.globals["url_for"] = safe_url_for
 
     os.makedirs(app.instance_path, exist_ok=True)
     
