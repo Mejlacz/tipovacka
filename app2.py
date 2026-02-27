@@ -157,6 +157,74 @@ def _init_db_once(app: Flask) -> None:
             pass
 
 
+
+# =========================================================
+# ENDPOINT COMPAT HELPERS (aliases for templates)
+# =========================================================
+def _ensure_endpoint(app: Flask, endpoint: str, preferred_rule: str, view_func, methods: Tuple[str, ...] = ("GET",)) -> None:
+    """Ensure an endpoint exists (some templates use fixed endpoint names).
+    If the preferred URL rule is already taken, register under a safe '-alias' URL.
+    """
+    if endpoint in app.view_functions:
+        return
+
+    existing_rules = {r.rule for r in app.url_map.iter_rules()}
+    rule = preferred_rule if preferred_rule not in existing_rules else preferred_rule + "-alias"
+    app.add_url_rule(rule, endpoint=endpoint, view_func=view_func, methods=list(methods))
+
+
+def _ensure_template_endpoints(app: Flask) -> None:
+    """Fix BuildError in Jinja templates when endpoint names differ."""
+
+    # admin dashboard endpoint expected by some templates
+    if "admin_dashboard" not in app.view_functions:
+        def _admin_dashboard_alias():
+            # Prefer the real admin dashboard URL if it exists
+            try:
+                return redirect("/admin/dashboard")
+            except Exception:
+                return redirect(url_for("dashboard"))
+        _ensure_endpoint(app, "admin_dashboard", "/admin/dashboard-alias", _admin_dashboard_alias)
+
+    # PWA manifest endpoint expected by BASE_HTML / error templates
+    if "pwa_manifest" not in app.view_functions:
+        def _pwa_manifest_stub():
+            manifest = {
+                "name": "Tipovačka",
+                "short_name": "Tipovačka",
+                "start_url": "/",
+                "display": "standalone",
+                "background_color": "#0b1020",
+                "theme_color": "#0b1020",
+                "icons": [],
+            }
+            return jsonify(manifest)
+        _ensure_endpoint(app, "pwa_manifest", "/manifest.json", _pwa_manifest_stub)
+
+    # Service worker route expected by BASE_HTML
+    if "service_worker" not in app.view_functions:
+        def _service_worker_stub():
+            js = """// minimal service worker (fallback)
+self.addEventListener('install', (event) => { self.skipWaiting(); });
+self.addEventListener('activate', (event) => { event.waitUntil(self.clients.claim()); });
+self.addEventListener('fetch', (event) => { /* passthrough */ });
+"""
+            return Response(js, mimetype="application/javascript")
+        _ensure_endpoint(app, "service_worker", "/service-worker.js", _service_worker_stub)
+
+    # PWA icon route used by manifest
+    if "pwa_icon" not in app.view_functions:
+        def _pwa_icon_stub(size: int):
+            # 1x1 transparent PNG
+            png = (
+                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+                b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+                b"\x0d\n\x2d\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+            )
+            return Response(png, mimetype="image/png")
+        _ensure_endpoint(app, "pwa_icon", "/pwa-icon/<int:size>", _pwa_icon_stub)
+
+
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
 
@@ -184,6 +252,9 @@ def create_app() -> Flask:
     csrf.init_app(app)
 
     register_routes(app)
+
+    # Ensure endpoints referenced from templates exist (prevents BuildError)
+    _ensure_template_endpoints(app)
 
     _init_db_once(app)
 
