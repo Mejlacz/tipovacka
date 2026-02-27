@@ -10,6 +10,7 @@ import hashlib
 import secrets
 import smtplib
 import tempfile
+import uuid
 import requests
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -433,6 +434,51 @@ class PushSubscription(db.Model):
     
     __table_args__ = (
         db.UniqueConstraint("user_id", "endpoint", name="uq_user_endpoint"),
+    )
+
+
+
+
+class ImportSession(db.Model):
+    """Server-side uložiště pro Smart Import preview (nahrazuje cookie session / pickle).
+
+    - payload_json drží list dictů (naparsované zápasy) nebo jiný preview payload.
+    - created_by_user_id slouží k autorizaci (jen admin, který parsoval, může importovat).
+    """
+    __tablename__ = "import_session"
+
+    id = db.Column(db.String(36), primary_key=True)  # uuid4
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    kind = db.Column(db.String(64), nullable=False, default="smart_import")
+    round_id = db.Column(db.Integer, db.ForeignKey("round.id"), nullable=True)
+    mode = db.Column(db.String(32), nullable=False, default="matches")  # matches/results
+    payload_json = db.Column(db.Text, nullable=False)
+
+    def get_payload(self):
+        try:
+            return json.loads(self.payload_json or "[]")
+        except Exception:
+            return []
+
+    def set_payload(self, payload):
+        self.payload_json = json.dumps(payload, ensure_ascii=False)
+
+
+class RoundUserScore(db.Model):
+    """Cache bodů pro (round_id, user_id) pro rychlé leaderboardy."""
+    __tablename__ = "round_user_score"
+    id = db.Column(db.Integer, primary_key=True)
+    round_id = db.Column(db.Integer, db.ForeignKey("round.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+
+    points = db.Column(db.Integer, default=0, nullable=False)
+    exact_count = db.Column(db.Integer, default=0, nullable=False)
+    winner_count = db.Column(db.Integer, default=0, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("round_id", "user_id", name="uq_round_user_score"),
     )
 
 
@@ -2027,6 +2073,71 @@ def calc_points_for_tip(match: Match, tip: Tip) -> int:
 # =========================================================
 # ACHIEVEMENTY / ODZNAKY
 # =========================================================
+
+
+
+def _get_or_create_round_user_score(round_id: int, user_id: int) -> RoundUserScore:
+    row = RoundUserScore.query.filter_by(round_id=round_id, user_id=user_id).first()
+    if row:
+        return row
+    row = RoundUserScore(round_id=round_id, user_id=user_id, points=0, exact_count=0, winner_count=0)
+    db.session.add(row)
+    return row
+
+
+def recompute_round_user_score(round_id: int, user_id: int) -> None:
+    """Přepočítá cache bodů pro jednoho uživatele v jednom kole."""
+    r = db.session.get(Round, round_id)
+    if not r:
+        return
+
+    matches = Match.query.filter_by(round_id=round_id, is_deleted=False).all()
+    tips = Tip.query.join(Match).filter(Match.round_id == round_id, Tip.user_id == user_id).all()
+    tips_by_match = {t.match_id: t for t in tips}
+
+    total = 0
+    exact_count = 0
+    winner_count = 0
+    for m in matches:
+        t = tips_by_match.get(m.id)
+        if not t:
+            continue
+        pts = calc_points_for_tip(m, t)
+        total += pts
+        if pts == 3:
+            exact_count += 1
+        elif pts == 1:
+            winner_count += 1
+
+    row = _get_or_create_round_user_score(round_id, user_id)
+    row.points = int(total)
+    row.exact_count = int(exact_count)
+    row.winner_count = int(winner_count)
+    row.updated_at = datetime.utcnow()
+    db.session.commit()
+
+
+def recompute_round_scores(round_id: int) -> None:
+    """Přepočítá cache pro všechny uživatele v kole (volat po změně výsledků)."""
+    # vezmi uživatele, kteří mají v kole aspoň jeden tip
+    user_ids = (
+        db.session.query(Tip.user_id)
+        .join(Match, Tip.match_id == Match.id)
+        .filter(Match.round_id == round_id)
+        .distinct()
+        .all()
+    )
+    user_ids = [uid for (uid,) in user_ids]
+    for uid in user_ids:
+        # commit uvnitř recompute_round_user_score – pro větší DB by bylo lepší batch,
+        # ale na 20 uživatelů je to OK a bezpečné.
+        recompute_round_user_score(round_id, uid)
+
+
+def get_score_cache_map(round_id: int) -> dict[int, RoundUserScore]:
+    rows = RoundUserScore.query.filter_by(round_id=round_id).all()
+    return {row.user_id: row for row in rows}
+
 
 
 def csv_response(filename_ascii: str, content: str) -> Response:
@@ -6607,7 +6718,13 @@ function toggleCollapse(header) {
                         saved_count += 1
 
             db.session.commit()
-            
+
+            # Cache bodů pro rychlý leaderboard
+            try:
+                recompute_round_user_score(r.id, current_user.id)
+            except Exception as e:
+                print(f"⚠️ recompute_round_user_score failed: {e}")
+
             # Zkontroluj achievementy
             check_and_award_achievements(current_user.id, r.id)
             
@@ -6984,6 +7101,8 @@ inputs.forEach((input, index) => {
         for t in tips:
             tips_by_user.setdefault(t.user_id, {})[t.match_id] = t
 
+        cache_map = get_score_cache_map(r.id)
+
         rows = []
         for u in users:
             # Skrýt tajného uživatele pro všechny kromě ownera a jeho samotného
@@ -6996,18 +7115,36 @@ inputs.forEach((input, index) => {
             if not tmap:
                 continue  # Uživatel nemá žádný tip v této soutěži
 
-            total = 0
-            exact_count = 0
-            winner_count = 0
-            for m in matches_q:
-                t = tmap.get(m.id)
-                if t:
-                    pts = calc_points_for_tip(m, t)
-                    total += pts
-                    if pts == 3:
-                        exact_count += 1
-                    elif pts == 1:
-                        winner_count += 1
+            # Preferuj cache (RoundUserScore) – fallback na přímý výpočet
+            cache_row = cache_map.get(u.id)
+            if cache_row:
+                total = int(cache_row.points or 0)
+                exact_count = int(cache_row.exact_count or 0)
+                winner_count = int(cache_row.winner_count or 0)
+            else:
+                total = 0
+                exact_count = 0
+                winner_count = 0
+                for m in matches_q:
+                    t = tmap.get(m.id)
+                    if t:
+                        pts = calc_points_for_tip(m, t)
+                        total += pts
+                        if pts == 3:
+                            exact_count += 1
+                        elif pts == 1:
+                            winner_count += 1
+                # doplň cache pro příště
+                try:
+                    row = _get_or_create_round_user_score(r.id, u.id)
+                    row.points = int(total)
+                    row.exact_count = int(exact_count)
+                    row.winner_count = int(winner_count)
+                    row.updated_at = datetime.utcnow()
+                    db.session.commit()
+                    cache_map[u.id] = row
+                except Exception as e:
+                    print(f"⚠️ cache write failed: {e}")
             rows.append({
                 "user": u,
                 "total": total,
@@ -12145,6 +12282,16 @@ function submitBulkDelete() {
         
             import_mode = request.form.get("import_mode", session.get('smart_import_mode', 'matches'))
             if action == "parse":
+                # zahodit případný předchozí preview session
+                old_sid = session.pop('smart_import_session_id', None)
+                if old_sid:
+                    try:
+                        imp_old = db.session.get(ImportSession, old_sid)
+                        if imp_old and imp_old.created_by_user_id == current_user.id:
+                            db.session.delete(imp_old)
+                            db.session.commit()
+                    except Exception as e:
+                        print(f"⚠️ ImportSession cleanup failed: {e}")
                 # KROK 1: Parsování
                 text = request.form.get("raw_text", "")
                 round_id = request.form.get("round_id")
@@ -12167,9 +12314,25 @@ function submitBulkDelete() {
                         m['home_team'] = normalize_team_name(m['home_team'], int(round_id))
                         m['away_team'] = normalize_team_name(m['away_team'], int(round_id))
             
-                # Store v session pro preview
-                session['parsed_matches'] = matches
-                session['import_round_id'] = round_id
+                # Ulož server-side preview (ImportSession) – bezpečné i na multi-worker hostingu
+                try:
+                    imp = ImportSession(
+                        id=str(uuid.uuid4()),
+                        created_by_user_id=current_user.id,
+                        kind="smart_import",
+                        round_id=int(round_id) if round_id else None,
+                        mode=import_mode or "matches",
+                        payload_json=json.dumps(matches, ensure_ascii=False),
+                    )
+                    db.session.add(imp)
+                    db.session.commit()
+                    session['smart_import_session_id'] = imp.id
+                    session['import_round_id'] = round_id
+                except Exception as e:
+                    print(f"⚠️ ImportSession save failed: {e}")
+                    # fallback (není ideální, ale ať to aspoň běží)
+                    session['parsed_matches'] = matches
+                    session['import_round_id'] = round_id
             
                 flash(f"✅ Naparsováno {len(matches)} zápasů! Zkontroluj a uprav pokud potřeba.", "ok")
                 return redirect(url_for("admin_smart_import") + "?preview=1")
@@ -12395,9 +12558,18 @@ function submitBulkDelete() {
                     flash(f"❌ Chyba při ukládání do databáze: {str(e)}", "error")
                     return redirect(url_for("admin_smart_import"))
             
-                # Clear session
+                # Clear session + server-side preview
                 session.pop('parsed_matches', None)
                 session.pop('import_round_id', None)
+                sid = session.pop('smart_import_session_id', None)
+                if sid:
+                    try:
+                        imp = db.session.get(ImportSession, sid)
+                        if imp and imp.created_by_user_id == current_user.id:
+                            db.session.delete(imp)
+                            db.session.commit()
+                    except Exception as e:
+                        print(f"⚠️ ImportSession delete failed: {e}")
             
                 if errors:
                     flash(f"⚠️ Importováno {imported} zápasů, přeskočeno {skipped}, {len(errors)} chyb: {', '.join(errors[:3])}", "warning")
@@ -12407,13 +12579,26 @@ function submitBulkDelete() {
                     flash(f"✅ Úspěšně importováno {imported} zápasů!", "ok")
             
                 audit("smart_import", "Match", None, count=imported, round=round_name)
-            
+
+                # pokud se importovaly výsledky, přepočti cache bodů
+                if import_mode == "results" and imported > 0:
+                    try:
+                        recompute_round_scores(int(round_id))
+                    except Exception as e:
+                        print(f"⚠️ recompute_round_scores failed: {e}")
+
                 return redirect(url_for("admin_rounds"))
     
         # GET request
         preview_mode = request.args.get("preview") == "1"
-        parsed_matches = session.get('parsed_matches', [])
         import_round_id = session.get('import_round_id')
+
+        parsed_matches = []
+        sid = session.get("smart_import_session_id")
+        if sid:
+            imp = db.session.get(ImportSession, sid)
+            if imp and imp.created_by_user_id == current_user.id:
+                parsed_matches = imp.get_payload()
     
         return render_template_string(SMART_IMPORT_TEMPLATE,
                                       rounds=rounds,
@@ -13476,6 +13661,13 @@ function validateDelete() {
         m.away_score = int(away_score_val) if away_score_val else None
 
         db.session.commit()
+
+        # Přepočti cache bodů v kole (výsledek se změnil)
+        try:
+            recompute_round_scores(m.round_id)
+        except Exception as e:
+            print(f"⚠️ recompute_round_scores failed: {e}")
+
         audit("match.quick_score", "Match", m.id, home=m.home_score, away=m.away_score)
         flash(f"Výsledek uložen: {m.home_team.name} {m.home_score or '-'}:{m.away_score or '-'} {m.away_team.name}", "ok")
         return redirect(url_for("leaderboard"))
@@ -14437,6 +14629,13 @@ function validateDelete() {
                     updated_count += 1
         
         db.session.commit()
+
+        # Přepočti cache bodů v kole (výsledky se mohly změnit)
+        try:
+            recompute_round_scores(rid)
+        except Exception as e:
+            print(f"⚠️ recompute_round_scores failed: {e}")
+
         audit("bulk_edit.save", "Match", None, details=f"Updated {updated_count} matches")
         
         # Pošli push notifikace o zadaných výsledcích
