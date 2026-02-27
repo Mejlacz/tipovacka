@@ -18826,6 +18826,7 @@ toggleImportTarget();
       <div><b>Server cas:</b> {{ now_local().strftime("%d.%m.%Y %H:%M:%S") }}</div>
 
       <form method="post" class="mt-3 d-flex gap-2 flex-wrap">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button name="action" value="run_scheduler" class="btn btn-primary">Spustit scheduler ted</button>
         <button name="action" value="test_push" class="btn btn-outline-secondary">Poslat test sobe</button>
       </form>
@@ -18850,6 +18851,7 @@ toggleImportTarget();
               <td>{{ row.enabled }} / {{ row.total }}</td>
               <td>
                 <form method="post" action="{{ url_for('admin_notifications_test_user') }}" class="m-0">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="hidden" name="user_id" value="{{ row.user.id }}">
                   <button class="btn btn-sm btn-outline-primary" {% if row.enabled == 0 %}disabled{% endif %}>Test uzivateli</button>
                 </form>
