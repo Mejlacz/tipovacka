@@ -12047,31 +12047,68 @@ function submitBulkDelete() {
 
 
     def _parse_pipe_style(line: str) -> Optional[Dict]:
-        """Pipe separated: Sparta|Slavia|2|1|14.2.2026 20:00"""
+        """Pipe separated: Sparta|Slavia|2|1|14.2.2026 20:00
+
+        Robustní proti tabulkám, které mají na začátku ještě sloupec s kódem / zkratkou:
+        např. "MLA|Mladá Boleslav|FK Jablonec|| |28.2.2026 15:00"
+        nebo "Ml.|Mladá Boleslav|FK Jablonec|-|-|28.2.2026 15:00"
+        """
         if '|' not in line:
             return None
-    
-        parts = [p.strip() for p in line.split('|')]
+
+        parts = [p.strip() for p in line.split('|') if p is not None]
+        # zahodit úplně prázdné koncové sloupce
+        while parts and parts[-1] == '':
+            parts.pop()
+
         if len(parts) < 2:
             return None
-    
+
+        # Heuristika: první sloupec je "kód" (krátký) a teprve druhý+ třetí jsou týmy
+        # Typicky: ["Ml.", "Mladá Boleslav", "FK Jablonec", "", "", "28.02.2026 15:00"]
+        def looks_like_code(s: str) -> bool:
+            s = (s or '').strip()
+            if not s:
+                return False
+            if len(s) > 5:
+                return False
+            if any(ch.isdigit() for ch in s):
+                return False
+            # časté kódy: DUK, SLA, SPA, "Ml."
+            return s.isupper() or s.endswith('.') or (len(s) <= 4 and s.replace('.', '').isalpha())
+
+        offset = 0
+        if len(parts) >= 3 and looks_like_code(parts[0]) and len(parts[1]) >= 3 and len(parts[2]) >= 3:
+            # pokud by se 1. sloupec byl reálně tým ("SK"), tak to necháme být; tohle je hlavně pro "Ml." apod.
+            if parts[0] != parts[1]:
+                offset = 1
+
+        home_idx = 0 + offset
+        away_idx = 1 + offset
+        if away_idx >= len(parts):
+            return None
+
         result = {
-            'home_team': parts[0],
-            'away_team': parts[1],
+            'home_team': parts[home_idx],
+            'away_team': parts[away_idx],
         }
-    
-        if len(parts) >= 4:
+
+        # skóre
+        score_idx = 2 + offset
+        if len(parts) > score_idx + 1:
             try:
-                result['home_score'] = int(parts[2])
-                result['away_score'] = int(parts[3])
-            except:
+                result['home_score'] = int(parts[score_idx])
+                result['away_score'] = int(parts[score_idx + 1])
+            except Exception:
                 pass
-    
-        if len(parts) >= 5:
-            dt = _parse_datetime(parts[4])
+
+        # datum/čas
+        dt_idx = 4 + offset
+        if len(parts) > dt_idx:
+            dt = _parse_datetime(parts[dt_idx])
             if dt:
                 result['start_time'] = dt
-    
+
         return result
 
 
