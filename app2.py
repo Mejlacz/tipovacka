@@ -18869,7 +18869,9 @@ toggleImportTarget();
             VAPID_PUBLIC_KEY=VAPID_PUBLIC_KEY,
             VAPID_PRIVATE_KEY=VAPID_PRIVATE_KEY,
             now_local=now_local,
-        )@app.route("/admin/notifications/test-user", methods=["POST"])
+        )
+
+    @app.route("/admin/notifications/test-user", methods=["POST"], endpoint="admin_notifications_test_user")
     @login_required
     @admin_required
     def admin_notifications_test_user():
