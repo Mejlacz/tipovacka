@@ -11730,6 +11730,9 @@ function submitBulkDelete() {
             
             match_data = _parse_single_line(line, line_num)
             if match_data:
+                if round_id:
+                    match_data['home_team'] = normalize_team_name(match_data.get('home_team',''), round_id=round_id)
+                    match_data['away_team'] = normalize_team_name(match_data.get('away_team',''), round_id=round_id)
                 # CRITICAL FIX: Convert datetime to ISO string for JSON
                 if 'start_time' in match_data and match_data['start_time']:
                     if isinstance(match_data['start_time'], datetime):
@@ -12078,10 +12081,16 @@ function submitBulkDelete() {
             return s.isupper() or s.endswith('.') or (len(s) <= 4 and s.replace('.', '').isalpha())
 
         offset = 0
-        if len(parts) >= 3 and looks_like_code(parts[0]) and len(parts[1]) >= 3 and len(parts[2]) >= 3:
-            # pokud by se 1. sloupec byl reálně tým ("SK"), tak to necháme být; tohle je hlavně pro "Ml." apod.
-            if parts[0] != parts[1]:
-                offset = 1
+        if (
+            len(parts) >= 3
+            and looks_like_code(parts[0])
+            and (' ' not in parts[0])
+            and (not looks_like_code(parts[1]))
+            and (not looks_like_code(parts[2]))
+            and (len(parts[1]) >= 4)
+            and (len(parts[2]) >= 4)
+        ):
+            offset = 1
 
         home_idx = 0 + offset
         away_idx = 1 + offset
@@ -12200,107 +12209,102 @@ function submitBulkDelete() {
         return None
 
 
-    def normalize_team_name(name: str, round_id: int = None) -> str:
-        """
-        🧠 Inteligentní normalizace jména týmu
-    
-        - Opraví běžné překlepy
-        - Doplní plný název (Slavia → SK Slavia Praha)
-        - Najde podobné týmy v databázi
-        """
-    
-        if name is None:
-            return ""
-        if isinstance(name, bool):
-            return ""
-        if not isinstance(name, str):
-            name = str(name)
-        name = name.strip()
+def resolve_team_name(name: str, round_id: int = None) -> str:
+    """Jednotný resolver názvů týmů pro importéry.
 
-        # Aliasy z DB (spravované v Admin UI)
-        if round_id:
-            try:
-                al = TeamAlias.query.filter_by(round_id=round_id, alias=name).first()
-                if not al:
-                    # case-insensitive match
-                    al = TeamAlias.query.filter(TeamAlias.round_id == round_id, db.func.lower(TeamAlias.alias) == name.lower()).first()
-                if al and al.canonical_name:
-                    return al.canonical_name
-            except Exception as e:
-                print(f"⚠️ Chyba v TeamAlias lookup: {e}")
-    
-        # Zkratky → plné názvy
-        short_to_full = {
-            # Zkratky / běžné názvy → názvy, které typicky chceš mít v DB
-            'Dukla': 'FK Dukla Praha',
-            'Slavia': 'SK Slavia Praha',
-            'Sparta': 'AC Sparta Praha',
-            'Ostrava': 'FC Baník Ostrava',
-            'Baník': 'FC Baník Ostrava',
+    Cíl:
+    - ořezat bordel z copy/paste (NBSP, přebytečné mezery, omylem nalepené '|' atd.)
+    - sjednotit běžné zápisy (např. '1.FC' -> '1. FC')
+    - aplikovat TeamAlias (round-specific)
+    - fallback na direct match Team.name
+    - jemný fuzzy fallback (needle in tname / tname in needle)
+    """
+    s = (name or "")
+    # copy/paste artefakty
+    s = s.replace("\u00a0", " ")
+    s = s.strip().strip("|").strip()
+    s = re.sub(r"\s+", " ", s)
 
-            'Liberec': 'FC Slovan Liberec',
-            'Hradec Kr.': 'FC Hradec Králové',
-            'Hradec': 'FC Hradec Králové',
+    # běžné normalizace zápisů
+    s = re.sub(r"\b1\.?\s*FC\b", "1. FC", s, flags=re.I)
+    s = re.sub(r"\bFK\s+", "FK ", s, flags=re.I)
+    s = re.sub(r"\bSK\s+", "SK ", s, flags=re.I)
+    s = re.sub(r"\bFC\s+", "FC ", s, flags=re.I)
+    s = re.sub(r"\s+", " ", s).strip()
 
-            'Ml. Boleslav': 'FK Mladá Boleslav',
-            'Mladá Boleslav': 'FK Mladá Boleslav',
-            'Jablonec': 'FK Jablonec',
+    # drobné mapy (jen tam, kde se to reálně plete)
+    _direct_map = {
+        "Ml. Boleslav": "Mladá Boleslav",
+        "Ml.Boleslav": "Mladá Boleslav",
+        "Hradec Kr.": "Hradec Králové",
+        "Hradec Kr": "Hradec Králové",
+    }
+    if s in _direct_map:
+        s = _direct_map[s]
 
-            'Pardubice': 'FK Pardubice',
-            'Teplice': 'FK Teplice',
+    if not round_id:
+        return s
 
-            'Karviná': 'MFK Karviná',
-            'Slovácko': '1.FC Slovácko',
+    # 1) TeamAlias (case-insensitive)
+    try:
+        alias_row = (
+            TeamAlias.query
+            .filter(TeamAlias.round_id == round_id)
+            .filter(db.func.lower(TeamAlias.alias) == s.lower())
+            .first()
+        )
+        if alias_row and alias_row.canonical_name:
+            return (alias_row.canonical_name or "").strip()
+    except Exception as e:
+        print(f"⚠️ resolve_team_name TeamAlias lookup failed: {e}")
 
-            'Zlín': 'FC Zlín',
-            'Plzeň': 'FC Viktoria Plzeň',
+    # 2) direct Team match (case-insensitive)
+    try:
+        t = (
+            Team.query
+            .filter_by(round_id=round_id, is_deleted=False)
+            .filter(db.func.lower(Team.name) == s.lower())
+            .first()
+        )
+        if t and t.name:
+            return t.name.strip()
+    except Exception as e:
+        print(f"⚠️ resolve_team_name Team direct lookup failed: {e}")
 
-            'Olomouc': 'SK Sigma Olomouc',
-            'Sigma': 'SK Sigma Olomouc',
+    # 3) fallback heuristiky
+    try:
+        team_names = [
+            (t.name or "").strip()
+            for t in Team.query.filter_by(round_id=round_id, is_deleted=False).all()
+            if t and t.name
+        ]
+        needle = s.lower()
 
-            'Bohemians': 'Bohemians Praha 1905',
-        }
+        # a) krátká zkratka typu "Ml." – zkus napasovat na začátek slova v názvu týmu
+        if len(s) <= 5 and s.endswith('.'):
+            ab = s.rstrip('.').lower()
+            cands = []
+            for tname in team_names:
+                words = re.split(r"\s+", tname.lower())
+                if any(w.startswith(ab) for w in words):
+                    cands.append(tname)
+            if len(cands) == 1:
+                return cands[0]
 
-    
-        # Přesná shoda
-        if name in short_to_full:
-            return short_to_full[name]
-    
-        # Case-insensitive hledání
-        for short, full in short_to_full.items():
-            if name.lower() == short.lower():
-                return full
-            if name.lower() == full.lower():
-                return full
-    
-        # Částečná shoda
-        for short, full in short_to_full.items():
-            if short.lower() in name.lower() or name.lower() in short.lower():
-                return full
-        # Pokud je round_id, zkus najít v DB (fuzzy match na existující Team.name)
-        if round_id:
-            try:
-                if not isinstance(name, str):
-                    name = str(name)
+        # b) include match (tolerantní)
+        for tname in team_names:
+            t_low = tname.lower()
+            if needle and (needle in t_low or t_low in needle):
+                return tname
+    except Exception as e:
+        print(f"⚠️ resolve_team_name fuzzy fallback failed: {e}")
 
-                # Načti názvy týmů pro tuto soutěž
-                team_names = [
-                    (t.name or "").strip()
-                    for t in Team.query.filter_by(round_id=round_id, is_deleted=False).all()
-                    if t and t.name
-                ]
+    return s
 
-                needle = name.lower()
-                for tname in team_names:
-                    t_low = tname.lower()
-                    if needle in t_low or t_low in needle:
-                        return tname
-            except Exception as e:
-                print(f"⚠️ Chyba v normalize_team_name: {e}")
-                pass
-        # Žádná shoda - vrať original
-        return name
 
+def normalize_team_name(name: str, round_id: int = None) -> str:
+    """Backward-compatible alias."""
+    return resolve_team_name(name, round_id=round_id)
 
     @app.route("/admin/smart-import", methods=["GET", "POST"])
     @login_required
