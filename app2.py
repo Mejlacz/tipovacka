@@ -353,32 +353,6 @@ class Tip(db.Model):
     __table_args__ = (db.UniqueConstraint("user_id", "match_id", name="uq_tip_user_match"),)
 
 
-class RoundUserScore(db.Model):
-    """Cache bodů pro rychlé žebříčky (počítá se z Tip + Match výsledků).
-
-    Pozn.: cache se drží jen pro tipy na zápasy (extra otázky nejsou bodované).
-    """
-    id = db.Column(db.Integer, primary_key=True)
-
-    round_id = db.Column(db.Integer, db.ForeignKey("round.id"), nullable=False, index=True)
-    round = db.relationship("Round", lazy=True)
-
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
-    user = db.relationship("User", lazy=True)
-
-    points = db.Column(db.Integer, nullable=False, default=0)
-    exact_count = db.Column(db.Integer, nullable=False, default=0)   # 3 body
-    winner_count = db.Column(db.Integer, nullable=False, default=0)  # 1 bod
-
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
-    __table_args__ = (
-        db.UniqueConstraint("round_id", "user_id", name="uq_round_user_score"),
-        db.Index("ix_round_user_score_round_points", "round_id", "points"),
-    )
-
-
-
 class ExtraQuestion(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
@@ -2048,77 +2022,6 @@ def calc_points_for_tip(match: Match, tip: Tip) -> int:
     if (m_diff == 0 and t_diff == 0) or (m_diff > 0 and t_diff > 0) or (m_diff < 0 and t_diff < 0):
         return 1
     return 0
-
-
-# =========================================================
-# SCORE CACHE (RoundUserScore)
-# =========================================================
-
-def recompute_round_user_score(round_id: int, user_id: int) -> None:
-    """Přepočítá cache pro jednoho uživatele v jedné soutěži."""
-    # načti všechny odehrané zápasy v soutěži
-    matches = Match.query.filter_by(round_id=round_id, is_deleted=False).filter(
-        Match.home_score.isnot(None),
-        Match.away_score.isnot(None),
-    ).all()
-    if not matches:
-        pts = 0
-        exact = 0
-        win = 0
-    else:
-        match_by_id = {m.id: m for m in matches}
-        tips = Tip.query.filter(
-            Tip.user_id == user_id,
-            Tip.match_id.in_(list(match_by_id.keys()))
-        ).all()
-        pts = 0
-        exact = 0
-        win = 0
-        for t in tips:
-            mm = match_by_id.get(t.match_id)
-            if not mm:
-                continue
-            p = calc_points_for_tip(mm, t)
-            pts += p
-            if p == 3:
-                exact += 1
-            elif p == 1:
-                win += 1
-
-    row = RoundUserScore.query.filter_by(round_id=round_id, user_id=user_id).first()
-    if not row:
-        row = RoundUserScore(round_id=round_id, user_id=user_id)
-        db.session.add(row)
-
-    row.points = int(pts)
-    row.exact_count = int(exact)
-    row.winner_count = int(win)
-    row.updated_at = datetime.utcnow()
-
-
-def recompute_round_scores(round_id: int) -> None:
-    """Přepočítá cache pro všechny uživatele v soutěži.
-
-    Volat po importu výsledků / editaci skóre / masivním zásahu do Tip/Match.
-    """
-    # uživatelé, kteří mají aspoň 1 tip v soutěži
-    user_ids = (
-        db.session.query(Tip.user_id)
-        .join(Match, Tip.match_id == Match.id)
-        .filter(Match.round_id == round_id, Match.is_deleted == False)
-        .distinct()
-        .all()
-    )
-    user_ids = [uid for (uid,) in user_ids]
-
-    for uid in user_ids:
-        recompute_round_user_score(round_id, uid)
-
-
-def get_score_cache_map(round_id: int) -> dict[int, RoundUserScore]:
-    """Vrátí mapu user_id -> RoundUserScore pro danou soutěž."""
-    rows = RoundUserScore.query.filter_by(round_id=round_id).all()
-    return {r.user_id: r for r in rows}
 
 
 # =========================================================
@@ -6704,14 +6607,7 @@ function toggleCollapse(header) {
                         saved_count += 1
 
             db.session.commit()
-
-            # Update score cache for this user (rychlejší žebříčky)
-            try:
-                recompute_round_user_score(r.id, current_user.id)
-                db.session.commit()
-            except Exception as _e:
-                db.session.rollback()
-
+            
             # Zkontroluj achievementy
             check_and_award_achievements(current_user.id, r.id)
             
@@ -7088,8 +6984,6 @@ inputs.forEach((input, index) => {
         for t in tips:
             tips_by_user.setdefault(t.user_id, {})[t.match_id] = t
 
-        cache_map = get_score_cache_map(r.id)
-
         rows = []
         for u in users:
             # Skrýt tajného uživatele pro všechny kromě ownera a jeho samotného
@@ -7102,24 +6996,18 @@ inputs.forEach((input, index) => {
             if not tmap:
                 continue  # Uživatel nemá žádný tip v této soutěži
 
-            cache_row = cache_map.get(u.id)
-            if cache_row:
-                total = int(cache_row.points or 0)
-                exact_count = int(cache_row.exact_count or 0)
-                winner_count = int(cache_row.winner_count or 0)
-            else:
-                total = 0
-                exact_count = 0
-                winner_count = 0
-                for m in matches_q:
-                    t = tmap.get(m.id)
-                    if t:
-                        pts = calc_points_for_tip(m, t)
-                        total += pts
-                        if pts == 3:
-                            exact_count += 1
-                        elif pts == 1:
-                            winner_count += 1
+            total = 0
+            exact_count = 0
+            winner_count = 0
+            for m in matches_q:
+                t = tmap.get(m.id)
+                if t:
+                    pts = calc_points_for_tip(m, t)
+                    total += pts
+                    if pts == 3:
+                        exact_count += 1
+                    elif pts == 1:
+                        winner_count += 1
             rows.append({
                 "user": u,
                 "total": total,
@@ -12501,14 +12389,6 @@ function submitBulkDelete() {
                 try:
                     db.session.commit()
                     print(f"✅ DB commit úspěšný: {imported} zápasů")
-
-                    # Recompute score cache when importing results
-                    if import_mode != 'matches' and imported > 0:
-                        try:
-                            recompute_round_scores(round_id_int)
-                            db.session.commit()
-                        except Exception as _e:
-                            db.session.rollback()
                 except Exception as e:
                     db.session.rollback()
                     print(f"❌ DB commit selhal: {e}")
@@ -12825,16 +12705,19 @@ function submitBulkDelete() {
               <tbody>
                 {% for match in parsed_matches %}
                 <tr data-index="{{ loop.index0 }}">
-                  <td>{{ loop.index }}</td>
+                  <td style="width:30px;">{{ loop.index }}</td>
+                  <td style="width:60px; text-align:center;">
+                    <input type="checkbox" class="match-checkbox" checked>
+                  </td>
                   <td>
-                    <input type="text" 
-                           class="home-team" 
+                    <input type="text"
+                           class="home-team"
                            value="{{ match.home_team }}"
                            data-original="{{ match.home_team }}">
                   </td>
                   <td>
-                    <input type="text" 
-                           class="away-team" 
+                    <input type="text"
+                           class="away-team"
                            value="{{ match.away_team }}"
                            data-original="{{ match.away_team }}">
                   </td>
@@ -13593,14 +13476,6 @@ function validateDelete() {
         m.away_score = int(away_score_val) if away_score_val else None
 
         db.session.commit()
-
-        # Recompute score cache for this round (výsledky se změnily)
-        try:
-            recompute_round_scores(m.round_id)
-            db.session.commit()
-        except Exception as _e:
-            db.session.rollback()
-
         audit("match.quick_score", "Match", m.id, home=m.home_score, away=m.away_score)
         flash(f"Výsledek uložen: {m.home_team.name} {m.home_score or '-'}:{m.away_score or '-'} {m.away_team.name}", "ok")
         return redirect(url_for("leaderboard"))
@@ -13643,14 +13518,6 @@ function validateDelete() {
             m.home_score = hs
             m.away_score = aas
             db.session.commit()
-
-            # Recompute score cache for this round (mohl se změnit výsledek)
-            try:
-                recompute_round_scores(r.id)
-                db.session.commit()
-            except Exception as _e:
-                db.session.rollback()
-
             audit("match.edit", "Match", m.id)
             flash("Zápas upraven.", "ok")
             return redirect(url_for("matches"))
@@ -14570,14 +14437,6 @@ function validateDelete() {
                     updated_count += 1
         
         db.session.commit()
-
-        # Recompute score cache for this round (výsledky se změnily)
-        try:
-            recompute_round_scores(r.id)
-            db.session.commit()
-        except Exception as _e:
-            db.session.rollback()
-
         audit("bulk_edit.save", "Match", None, details=f"Updated {updated_count} matches")
         
         # Pošli push notifikace o zadaných výsledcích
