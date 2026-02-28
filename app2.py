@@ -3106,7 +3106,27 @@ BASE_HTML = r"""
         border-radius: 0 4px 4px 0;
       }
     }
-  </style>
+  
+
+    /* ========================================
+       TABLE LAYOUT IMPROVEMENTS (Smart Import Preview + Admin tables)
+       ======================================== */
+    table.preview-table{ width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+    table.preview-table thead th{ position:sticky; top:0; z-index:2; background:var(--card); }
+    table.preview-table th, table.preview-table td{ padding:10px 8px; vertical-align:middle; }
+    table.preview-table td:first-child, table.preview-table th:first-child{ text-align:center; }
+    table.preview-table input[type="text"]{ width:100%; min-width:120px; }
+    table.preview-table input.home-score, 
+    table.preview-table input.away-score, 
+    table.preview-table input[type="number"].home-score,
+    table.preview-table input[type="number"].away-score{ width:70px; text-align:center; }
+    table.preview-table input.start-time{ width:180px; max-width:100%; }
+    @media (max-width: 900px){
+      table.preview-table{ table-layout:auto; }
+      table.preview-table input.start-time{ width:160px; }
+    }
+
+</style>
 </head>
 
 <body>
@@ -20530,7 +20550,61 @@ def ensure_sqlite_schema() -> None:
 # =========================================================
 # SEED
 # =========================================================
+
+def purge_test_chance_liga_data():
+    """Idempotent purge of old test data (Chance Liga).
+
+    Deletes ONLY rounds whose name contains 'Chance Liga' AND have no tips.
+    This prevents test fixtures from reappearing after rebuilds when a bundled DB is used.
+    Controlled by env PURGE_TEST_CHANCE_LIGA (default '1').
+    """
+    if os.getenv("PURGE_TEST_CHANCE_LIGA", "1").strip().lower() in ("0", "false", "no"):
+        return
+    try:
+        # Candidate rounds: name/title contains Chance Liga
+        candidates = Round.query.filter(Round.name.ilike("%Chance Liga%")).all()
+        purged_rounds = 0
+        purged_matches = 0
+        for rnd in candidates:
+            # Safety: purge only if there are no tips in this round
+            has_tips = (
+                db.session.query(Tip.id)
+                .join(Match, Tip.match_id == Match.id)
+                .filter(Match.round_id == rnd.id)
+                .limit(1)
+                .first()
+                is not None
+            )
+            if has_tips:
+                continue
+
+            # Delete dependent rows (tips should be none anyway), then matches, then round
+            match_ids = [m.id for m in Match.query.filter_by(round_id=rnd.id).all()]
+            if match_ids:
+                # Just in case: remove tips for these matches (should be empty due to has_tips)
+                Tip.query.filter(Tip.match_id.in_(match_ids)).delete(synchronize_session=False)
+                Match.query.filter(Match.id.in_(match_ids)).delete(synchronize_session=False)
+                purged_matches += len(match_ids)
+
+            # Extras / other relations
+            ExtraQuestion.query.filter_by(round_id=rnd.id).delete(synchronize_session=False)
+            ExtraAnswer.query.filter_by(round_id=rnd.id).delete(synchronize_session=False)
+            NotificationSent.query.filter_by(round_id=rnd.id).delete(synchronize_session=False) if "NotificationSent" in globals() else None
+            RoundUserScore.query.filter_by(round_id=rnd.id).delete(synchronize_session=False) if "RoundUserScore" in globals() else None
+
+            db.session.delete(rnd)
+            purged_rounds += 1
+
+        if purged_rounds or purged_matches:
+            db.session.commit()
+            print(f"🧹 Purged test Chance Liga data: rounds={purged_rounds}, matches={purged_matches}")
+    except Exception as e:
+        print(f"⚠️ purge_test_chance_liga_data failed: {e}")
+        db.session.rollback()
+
+
 def seed_defaults_if_empty():
+    purge_test_chance_liga_data()
     if Sport.query.count() == 0:
         db.session.add(Sport(name="Fotbal"))
         db.session.add(Sport(name="Hokej"))
