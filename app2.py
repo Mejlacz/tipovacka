@@ -19051,8 +19051,124 @@ document.getElementById('notif-settings-form').addEventListener('submit', async 
     alert('❌ Chyba při ukládání: ' + error.message);
   }
 });
+
+// ------------------------------
+// PUSH enable/disable (Android/Chrome)
+// ------------------------------
+const VAPID_PUBLIC_KEY = "{{ vapid_public_key }}";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function getSWRegistration() {
+  if (!('serviceWorker' in navigator)) throw new Error('Service Worker není podporován v tomto prohlížeči.');
+  let reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) {
+    reg = await navigator.serviceWorker.register('/service-worker.js');
+  }
+  await navigator.serviceWorker.ready;
+  return reg;
+}
+
+function setPushStatus(html) {
+  const el = document.getElementById('pushStatus');
+  if (el) el.innerHTML = html;
+}
+
+async function refreshPushStatus() {
+  try {
+    const perm = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
+    if (perm === 'denied') {
+      setPushStatus('❌ Oznámení jsou pro tuto stránku blokovaná v prohlížeči. Povol je v Nastavení webu (Chrome).');
+      return;
+    }
+    if (perm === 'default') {
+      setPushStatus('ℹ️ Oznámení nejsou ještě povolená. Klikni na “Povolit push”.');
+      return;
+    }
+    if (perm !== 'granted') {
+      setPushStatus('❌ Prohlížeč nepodporuje Notification API.');
+      return;
+    }
+
+    const reg = await getSWRegistration();
+    if (!('pushManager' in reg)) {
+      setPushStatus('❌ PushManager není dostupný (prohlížeč nepodporuje push).');
+      return;
+    }
+
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      setPushStatus('✅ Push je zapnutý (subscription existuje).');
+    } else {
+      setPushStatus('ℹ️ Push je vypnutý (subscription neexistuje).');
+    }
+  } catch (e) {
+    setPushStatus('❌ Chyba: ' + (e && e.message ? e.message : e));
+  }
+}
+
+async function enablePush() {
+  try {
+    if (!VAPID_PUBLIC_KEY) throw new Error('Chybí VAPID public key na serveru.');
+    if (typeof Notification === 'undefined') throw new Error('Prohlížeč nepodporuje notifikace.');
+    let perm = Notification.permission;
+    if (perm !== 'granted') {
+      perm = await Notification.requestPermission();
+    }
+    if (perm !== 'granted') throw new Error('Notifikace nejsou povolené (permission=' + perm + ').');
+
+    const reg = await getSWRegistration();
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+
+    const resp = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(sub)
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.success) {
+      throw new Error(data.message || ('Subscribe API error (' + resp.status + ')'));
+    }
+    setPushStatus('✅ Push zapnutý. (Uloženo na serveru)');
+  } catch (e) {
+    alert('❌ Nepodařilo se zapnout push: ' + (e && e.message ? e.message : e));
+  } finally {
+    await refreshPushStatus();
+  }
+}
+
+async function disablePush() {
+  try {
+    const reg = await getSWRegistration();
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await sub.unsubscribe();
+    }
+    await fetch('/api/push/unsubscribe', {method: 'POST'}).catch(() => {});
+    setPushStatus('ℹ️ Push vypnutý.');
+  } catch (e) {
+    alert('❌ Nepodařilo se vypnout push: ' + (e && e.message ? e.message : e));
+  } finally {
+    await refreshPushStatus();
+  }
+}
+
+document.getElementById('btnEnablePush')?.addEventListener('click', enablePush);
+document.getElementById('btnDisablePush')?.addEventListener('click', disablePush);
+window.addEventListener('load', refreshPushStatus);
+
 </script>
-""", prefs=prefs)
+""", prefs=prefs, vapid_public_key=VAPID_PUBLIC_KEY)
     
     @app.route("/api/notification-settings", methods=["GET", "POST"])
     @csrf.exempt
