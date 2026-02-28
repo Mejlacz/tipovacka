@@ -156,6 +156,34 @@ def _init_db_once(app: Flask) -> None:
             pass
 
 
+
+# =========================================================
+# ROUTE ALIASES (prevents 404 on trailing slashes / renamed endpoints)
+# =========================================================
+
+def _install_route_aliases(app: Flask) -> None:
+    """Install a few safe redirect aliases so mobile/PWA deep-links don't 404."""
+
+    def _redir(to_endpoint: str):
+        return redirect(url_for(to_endpoint))
+
+    # Notification settings sometimes linked with trailing slash
+    if 'notification_settings' in app.view_functions and '/notification-settings/' not in {r.rule for r in app.url_map.iter_rules()}:
+        app.add_url_rule('/notification-settings/', endpoint='notification_settings_slash', view_func=lambda: _redir('notification_settings'))
+
+    # Leaderboard with trailing slash
+    if 'leaderboard' in app.view_functions and '/leaderboard/' not in {r.rule for r in app.url_map.iter_rules()}:
+        app.add_url_rule('/leaderboard/', endpoint='leaderboard_slash', view_func=lambda: _redir('leaderboard'))
+
+    # Home with trailing slash
+    if 'home' in app.view_functions and '/home/' not in {r.rule for r in app.url_map.iter_rules()}:
+        app.add_url_rule('/home/', endpoint='home_slash', view_func=lambda: _redir('home'))
+
+    # Root index sometimes expected
+    if 'home' in app.view_functions and '/' not in {r.rule for r in app.url_map.iter_rules()}:
+        app.add_url_rule('/', endpoint='root', view_func=lambda: _redir('home'))
+
+
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
 
@@ -183,6 +211,9 @@ def create_app() -> Flask:
     csrf.init_app(app)
 
     register_routes(app)
+
+    # --- Route aliases for mobile/deeplinks (trailing slash / legacy paths) ---
+    _install_route_aliases(app)
 
     _init_db_once(app)
 
