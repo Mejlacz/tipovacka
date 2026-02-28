@@ -7139,6 +7139,23 @@ inputs.forEach((input, index) => {
   .cell-one{ background:rgba(249,199,79,.12); color:#f9c74f; font-weight:900; }
   .cell-bad{ background:rgba(167,178,214,.07); color:rgba(233,238,252,.55); }
   .score{ color:#ff4d6d; font-weight:900; }
+  
+  /* ===== Mobile tweaks ===== */
+  @media (max-width: 700px){
+    .card{ padding:14px; }
+    h2{ font-size:26px; }
+    .row{ flex-wrap: wrap; }
+    .row > form{ width:100%; }
+    select{ width:100%; min-width:0 !important; }
+    .btn{ width:100%; text-align:center; }
+    .muted{ font-size:14px; }
+    .lb-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:14px; }
+    .col-user{ width:140px; min-width:140px; max-width:140px; }
+    .col-total{ width:52px; min-width:52px; max-width:52px; }
+    .col-m{ width:44px; min-width:44px; max-width:44px; }
+    .vertical-text{ font-size:12px; padding:6px 4px; }
+  }
+
 </style>
 
 <div class="card">
@@ -18848,6 +18865,19 @@ toggleImportTarget();
         
         return render_page(r"""
 <div class="card">
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3 style="margin-top:0;">🔔 Push notifikace</h3>
+    <div id="pushStatus" class="muted">Načítám stav…</div>
+    <div class="row" style="gap:8px; margin-top:12px; flex-wrap:wrap;">
+      <button id="btnEnablePush" class="btn" type="button" style="background: rgba(110,168,254,.15); border: 1px solid rgba(110,168,254,.35);">Povolit push</button>
+      <button id="btnDisablePush" class="btn" type="button" style="background: rgba(167,178,214,.10); border: 1px solid rgba(167,178,214,.25);">Zakázat push</button>
+    </div>
+    <div class="muted" style="margin-top:10px; font-size:13px;">
+      Tip: Na Androidu musí být web otevřený v Chrome a povolené notifikace pro tuto stránku.
+    </div>
+  </div>
+
   <h2 style="margin:0 0 8px 0;">Nastavení notifikací 🔔</h2>
   <div class="muted">Vyber si, jaké notifikace chceš dostávat</div>
   
