@@ -1,5 +1,6 @@
 # app_tipovacka3_all_1_8.py
 from __future__ import annotations
+import base64
 
 import csv
 import io
@@ -60,7 +61,57 @@ from werkzeug.security import check_password_hash, generate_password_hash
 # KONFIG (uprav si jen tyhle dvě položky)
 # =========================================================
 OWNER_ADMIN_EMAIL = "3049@email.cz"          # owner (jen ty) – vidí tajného usera, má plná práva
-SECRET_USER_EMAIL = "kubamartinec97@gmail.com"          # tajný user (skrytý v admin přehledu pro jiné adminy)
+SECRET_USER_EMAIL = "kubamartinec97@gmail.com"          # tajný user (skrytý v admin přehledu pro
+# =========================================================
+# PWA ROUTES GUARARD (avoid 404 on Android / PWA)
+# =========================================================
+
+# 1x1 transparent PNG
+_TRANSPARENT_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO0H2p0AAAAASUVORK5CYII="
+)
+
+def ensure_pwa_routes(app: Flask) -> None:
+    """Ensure critical PWA endpoints exist even if some route blocks were refactored.
+    Prevents Android push from failing due to missing /service-worker.js or /manifest.json.
+    """
+    from flask import Response, jsonify, redirect
+
+    endpoints = set(app.view_functions.keys())
+
+    if "service_worker" not in endpoints:
+        def _service_worker_fallback():
+            sw_code = """// Minimal SW fallback (Tipovacka)
+self.addEventListener('install', (event) => { self.skipWaiting(); });
+self.addEventListener('activate', (event) => { event.waitUntil(self.clients.claim()); });
+self.addEventListener('fetch', (event) => { /* network-first */ });
+"""
+            return Response(sw_code, mimetype="application/javascript")
+        app.add_url_rule("/service-worker.js", endpoint="service_worker", view_func=_service_worker_fallback)
+
+    if "pwa_manifest" not in endpoints:
+        def _manifest_fallback():
+            return jsonify({
+                "name": "Tipovačka",
+                "short_name": "Tipovačka",
+                "start_url": "/",
+                "display": "standalone",
+                "background_color": "#0b1020",
+                "theme_color": "#0b1020",
+                "icons": [
+                    {"src": "/pwa-icon/192", "sizes": "192x192", "type": "image/png"},
+                    {"src": "/pwa-icon/512", "sizes": "512x512", "type": "image/png"}
+                ]
+            })
+        app.add_url_rule("/manifest.json", endpoint="pwa_manifest", view_func=_manifest_fallback)
+
+    if "pwa_icon" not in endpoints:
+        def _pwa_icon_fallback(size: int):
+            # Return tiny placeholder; browser will still accept manifest.
+            return Response(_TRANSPARENT_PNG, mimetype="image/png")
+        app.add_url_rule("/pwa-icon/<int:size>", endpoint="pwa_icon", view_func=_pwa_icon_fallback)
+
+ jiné adminy)
 
 # =========================================================
 # APP + EXTENSIONS
@@ -212,6 +263,7 @@ def create_app() -> Flask:
 
     register_routes(app)
 
+    ensure_pwa_routes(app)
     # --- Route aliases for mobile/deeplinks (trailing slash / legacy paths) ---
     _install_route_aliases(app)
 
