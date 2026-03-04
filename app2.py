@@ -14,7 +14,7 @@ import tempfile
 import requests
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-
+from parsers.smart_parser import smart_parse_matches
 
 # OCR support (optional - install with: pip install pytesseract pillow)
 try:
@@ -10481,4 +10481,5 @@ if __name__ == "__main__":
     # Development: Uncomment below to run locally with: python app2.py
     # app.run(debug=True, host='0.0.0.0', port=5000)
     pass
+
 
