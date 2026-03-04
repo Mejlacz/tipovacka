@@ -14,6 +14,7 @@ import tempfile
 import requests
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from parsers.smart_parser import smart_parse_matches
 
 # OCR support (optional - install with: pip install pytesseract pillow)
 try:
