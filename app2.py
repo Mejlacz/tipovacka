@@ -549,7 +549,7 @@ def send_email(to_email: str, subject: str, html_body: str, text_body: str = Non
     # Development mode - jen vypíše do console
     if not config['SEND_REAL_EMAILS']:
         print(f"\n{'='*60}")
-        print(f"📧 EMAIL (Development Mode - neposílá se)")
+        print(f" EMAIL (Development Mode - neposílá se)")
         print(f"To: {to_email}")
         print(f"Subject: {subject}")
         print(f"{'='*60}")
@@ -597,7 +597,7 @@ def send_email_with_attachment(to_email: str, subject: str, html_body: str, text
     # Development mode - jen vypsat do logu
     if not config['SEND_REAL_EMAILS']:
         print("\n" + "="*60)
-        print("📧 EMAIL S PŘÍLOHOU (Development Mode - neposílá se)")
+        print(" EMAIL S PŘÍLOHOU (Development Mode - neposílá se)")
         print(f"To: {to_email}")
         print(f"Subject: {subject}")
         print(f"Attachment: {attachment_name} ({len(attachment_data)} bytes = {len(attachment_data)/(1024*1024):.2f} MB)")
@@ -711,7 +711,7 @@ def send_verification_email(user: User, base_url: str) -> bool:
     <body>
         <div class="container">
             <div class="header">
-                <h1>🏆 Tipovačka</h1>
+                <h1> Tipovačka</h1>
             </div>
             <div class="content">
                 <h2>Vítej v Tipovačce!</h2>
@@ -789,7 +789,7 @@ def send_password_reset_email(user: User, base_url: str) -> bool:
     <body>
         <div class="container">
             <div class="header">
-                <h1>🔐 Tipovačka</h1>
+                <h1> Tipovačka</h1>
             </div>
             <div class="content">
                 <h2>Reset hesla</h2>
@@ -797,7 +797,7 @@ def send_password_reset_email(user: User, base_url: str) -> bool:
                 <p>Dostal jsi tento email protože někdo požádal o reset hesla pro tvůj účet.</p>
                 <p style="text-align: center;">
                     <a href="{reset_url}" class="button">
-                        🔑 Nastavit nové heslo
+                         Nastavit nové heslo
                     </a>
                 </p>
                 <p>Nebo zkopíruj tento odkaz do prohlížeče:</p>
@@ -885,7 +885,7 @@ def send_welcome_email_for_imported_user(user: User, password: str, base_url: st
     <body>
         <div class="container">
             <div class="header">
-                <h1>🏆 Vítej v Tipovačce!</h1>
+                <h1> Vítej v Tipovačce!</h1>
             </div>
             <div class="content">
                 <h2>Tvůj účet byl vytvořen</h2>
@@ -893,7 +893,7 @@ def send_welcome_email_for_imported_user(user: User, password: str, base_url: st
                 <p>Byl jsi přidán do tipovací soutěže! Tady jsou tvoje přihlašovací údaje:</p>
                 
                 <div class="credentials">
-                    <strong>🔐 Přihlašovací údaje:</strong><br><br>
+                    <strong> Přihlašovací údaje:</strong><br><br>
                     <strong>Email:</strong> {user.email}<br>
                     <strong>Username:</strong> {user.username}<br>
                     <strong>Heslo:</strong> {password}
@@ -906,7 +906,7 @@ def send_welcome_email_for_imported_user(user: User, password: str, base_url: st
                 
                 <p style="text-align: center;">
                     <a href="{base_url}" class="button">
-                        🎯 Přihlásit se
+                         Přihlásit se
                     </a>
                 </p>
                 
@@ -938,7 +938,7 @@ def send_welcome_email_for_imported_user(user: User, password: str, base_url: st
     
     Byl jsi přidán do tipovací soutěže! Tady jsou tvoje přihlašovací údaje:
     
-    🔐 PŘIHLAŠOVACÍ ÚDAJE:
+     PŘIHLAŠOVACÍ ÚDAJE:
     Email: {user.email}
     Username: {user.username}
     Heslo: {password}
@@ -1013,7 +1013,7 @@ def send_welcome_with_reset_link(user: User, base_url: str) -> bool:
     <body>
         <div class="container">
             <div class="header">
-                <h1>🏆 Vítej v Tipovačce!</h1>
+                <h1> Vítej v Tipovačce!</h1>
             </div>
             <div class="content">
                 <h2>Byl jsi přidán do soutěže</h2>
@@ -1021,20 +1021,20 @@ def send_welcome_with_reset_link(user: User, base_url: str) -> bool:
                 <p>Byl jsi přidán do tipovací soutěže! Pro dokončení registrace si nastav vlastní heslo.</p>
                 
                 <div class="credentials">
-                    <strong>🔐 Tvoje přihlašovací údaje:</strong><br><br>
+                    <strong> Tvoje přihlašovací údaje:</strong><br><br>
                     <strong>Email:</strong> {user.email}<br>
                     <strong>Username:</strong> {user.username}<br>
                     <strong>Heslo:</strong> <em>Nastavíš si sám (viz níže)</em>
                 </div>
                 
                 <div class="info">
-                    <strong>🔑 KROK 1: Nastav si heslo</strong><br>
+                    <strong> KROK 1: Nastav si heslo</strong><br>
                     Klikni na tlačítko níže a nastav si vlastní heslo:
                 </div>
                 
                 <p style="text-align: center;">
                     <a href="{reset_url}" class="button">
-                        🔑 Nastavit heslo
+                         Nastavit heslo
                     </a>
                 </p>
                 
@@ -1071,12 +1071,12 @@ def send_welcome_with_reset_link(user: User, base_url: str) -> bool:
     
     Byl jsi přidán do tipovací soutěže!
     
-    🔐 TVOJE PŘIHLAŠOVACÍ ÚDAJE:
+     TVOJE PŘIHLAŠOVACÍ ÚDAJE:
     Email: {user.email}
     Username: {user.username}
     Heslo: Nastavíš si sám (viz níže)
     
-    🔑 KROK 1: NASTAV SI HESLO
+     KROK 1: NASTAV SI HESLO
     Klikni na tento odkaz a nastav si vlastní heslo:
     {reset_url}
     
@@ -1443,7 +1443,7 @@ def send_results_notification(round_id: int):
         
         # Vytvoř personalizovaný text
         if exact_count > 0:
-            body = f"Máš {exact_count} přesných tipů! Celkem {total_points} bodů 🎯"
+            body = f"Máš {exact_count} přesných tipů! Celkem {total_points} bodů "
         elif total_points > 0:
             body = f"Získal jsi {total_points} bodů!"
         else:
@@ -1507,19 +1507,19 @@ def send_achievement_notification(user_id: int, achievement_type: str):
         return  # User nechce achievement notifikace
     
     achievement_names = {
-        "first_tip": "První krok! 🎯",
+        "first_tip": "První krok! ",
         "hattrick": "Hat-trick! ⚽⚽⚽",
-        "perfect_round": "Perfektní kolo! 💯",
-        "comeback": "Návrat z popela! 🔥",
-        "striker": "Střelec! 🎯",
-        "lucky_seven": "Šťastná 7! 🍀"
+        "perfect_round": "Perfektní kolo! ",
+        "comeback": "Návrat z popela! ",
+        "striker": "Střelec! ",
+        "lucky_seven": "Šťastná 7! "
     }
     
     name = achievement_names.get(achievement_type, "Nový achievement!")
     
     send_push_notification(
         user_id,
-        f"🏅 {name}",
+        f" {name}",
         "Získal jsi nový achievement!",
         {"url": "/profile"}
     )
@@ -1538,11 +1538,11 @@ def send_leaderboard_change_notification(user_id: int, old_position: int, new_po
     
     if new_position < old_position:
         # Posun nahoru
-        icon_emoji = "📈"
+        icon_emoji = ""
         text = f"Posunul ses na {new_position}. místo!"
     else:
         # Posun dolů
-        icon_emoji = "📉"
+        icon_emoji = ""
         text = f"Klesnul jsi na {new_position}. místo"
     
     send_push_notification(
@@ -1567,7 +1567,7 @@ def send_new_round_notification(round_name: str):
         
         send_push_notification(
             user.id,
-            "🆕 Nová soutěž!",
+            " Nová soutěž!",
             f"{round_name} - Tipuj teď!",
             {"url": "/matches"}
         )
@@ -1626,13 +1626,13 @@ def is_extras_locked(r: Round) -> bool:
 ACHIEVEMENTS = {
     'first_tip': {
         'name': 'První krev',
-        'icon': '🎯',
+        'icon': '',
         'description': 'Zadal jsi svůj první tip',
         'color': '#6ea8fe'
     },
     'hattrick': {
         'name': 'Hattrick',
-        'icon': '🔥',
+        'icon': '',
         'description': '3 přesné tipy po sobě',
         'color': '#ff6b6b'
     },
@@ -1644,37 +1644,37 @@ ACHIEVEMENTS = {
     },
     'sniper': {
         'name': 'Sniper',
-        'icon': '🎯',
+        'icon': '',
         'description': '10 přesných tipů po sobě',
         'color': '#ff4d6d'
     },
     'perfect_round': {
         'name': 'Perfekcionista',
-        'icon': '💎',
+        'icon': '',
         'description': 'Všechny tipy v kole přesné',
         'color': '#33d17a'
     },
     'top_tipper': {
         'name': 'Stratég',
-        'icon': '👑',
+        'icon': '',
         'description': 'Nejlepší tipér v kole',
         'color': '#ffd700'
     },
     'full_attendance': {
         'name': 'Věrný fanoušek',
-        'icon': '💯',
+        'icon': '',
         'description': '100% účast - tipoval jsi všechny zápasy',
         'color': '#33d17a'
     },
     'comeback_king': {
         'name': 'Comeback',
-        'icon': '📈',
+        'icon': '',
         'description': 'Posun o 3+ místa nahoru v žebříčku',
         'color': '#26a269'
     },
     'century': {
         'name': 'Stovka',
-        'icon': '💯',
+        'icon': '',
         'description': 'Získal jsi 100 bodů',
         'color': '#ffc107'
     },
@@ -1686,7 +1686,7 @@ ACHIEVEMENTS = {
     },
     'nostradamus': {
         'name': 'Nostradamus',
-        'icon': '🔮',
+        'icon': '',
         'description': 'Tipoval jsi překvapení jako první (velký outsider)',
         'color': '#a78bfa'
     },
@@ -1698,13 +1698,13 @@ ACHIEVEMENTS = {
     },
     'lucky_strike': {
         'name': 'Štěstí přeje připraveným',
-        'icon': '🍀',
+        'icon': '',
         'description': 'Správný tip na zápas s kurzem 5:1+',
         'color': '#10b981'
     },
     'underdog': {
         'name': 'Underdog',
-        'icon': '🐕',
+        'icon': '',
         'description': 'Top 3 s méně než 50% tipnutých zápasů',
         'color': '#8b5cf6'
     }
@@ -3079,7 +3079,7 @@ BASE_HTML = r"""
           <!-- Theme Switcher -->
           <div class="theme-switcher">
             <button class="theme-btn" onclick="toggleThemeDropdown()" aria-label="Změnit motiv">
-              🎨
+              
             </button>
             <div class="theme-dropdown" id="theme-dropdown">
               <div class="theme-option active" data-theme="dark" onclick="setTheme('dark')">
@@ -3118,10 +3118,10 @@ BASE_HTML = r"""
 
           <!-- DESKTOP NAVIGATION -->
           <div class="nav desktop-nav">
-            <a href="{{ url_for('home') }}">🏠 Home</a>
+            <a href="{{ url_for('home') }}"> Home</a>
             
             <div class="nav-dropdown">
-              <a href="{{ url_for('leaderboard') }}">📊 Žebříček</a>
+              <a href="{{ url_for('leaderboard') }}"> Žebříček</a>
               <div class="nav-dropdown-menu">
                 <a href="{{ url_for('leaderboard') }}">Hlavní žebříček</a>
                 <a href="{{ url_for('mini_leaderboards') }}">Mini žebříčky</a>
@@ -3137,11 +3137,11 @@ BASE_HTML = r"""
               </div>
             </div>
             
-            <a href="{{ url_for('extras') }}">🎯 Extra</a>
-            <a href="{{ url_for('archive') }}">📦 Archiv</a>
+            <a href="{{ url_for('extras') }}"> Extra</a>
+            <a href="{{ url_for('archive') }}"> Archiv</a>
             
             <div class="nav-dropdown">
-              <a href="{{ url_for('my_stats') }}">📈 Stats</a>
+              <a href="{{ url_for('my_stats') }}"> Stats</a>
               <div class="nav-dropdown-menu">
                 <a href="{{ url_for('my_stats') }}">Moje statistiky</a>
                 <a href="{{ url_for('achievements') }}">Achievementy</a>
@@ -3159,16 +3159,16 @@ BASE_HTML = r"""
                   <a href="{{ url_for('admin_bulk_edit') }}">Bulk Edit</a>
                   <a href="{{ url_for('admin_undo') }}">Undo</a>
                   <a href="{{ url_for('admin_users') }}">Uživatelé</a>
-                  <a href="{{ url_for('admin_api_sources') }}">🔌 API Zdroje</a>
-                  <a href="{{ url_for('admin_team_aliases') }}">🔁 Aliasy týmů</a>
-                  <a href="{{ url_for('admin_backup') }}">💾 Záloha</a>
+                  <a href="{{ url_for('admin_api_sources') }}"> API Zdroje</a>
+                  <a href="{{ url_for('admin_team_aliases') }}"> Aliasy týmů</a>
+                  <a href="{{ url_for('admin_backup') }}"> Záloha</a>
                   <a href="{{ url_for('admin_audit') }}">Historie</a>
                 </div>
               </div>
             {% endif %}
             
             <div class="nav-dropdown">
-              <a href="#">👤 {{ current_user.display_name }}</a>
+              <a href="#"> {{ current_user.display_name }}</a>
               <div class="nav-dropdown-menu">
                 <a href="{{ url_for('change_password') }}">Změnit heslo</a>
                 <a href="{{ url_for('logout') }}">Odhlásit</a>
@@ -3180,11 +3180,11 @@ BASE_HTML = r"""
           <div class="nav mobile-nav" id="mobile-nav">
             <button class="mobile-close-btn" onclick="toggleMobileMenu()">×</button>
             
-            <a href="{{ url_for('home') }}" onclick="closeMobileMenu()">🏠 Home</a>
+            <a href="{{ url_for('home') }}" onclick="closeMobileMenu()"> Home</a>
             
             <div class="nav-dropdown">
               <a href="#" class="nav-dropdown-toggle" onclick="toggleDropdown(event)">
-                📊 Žebříček <span class="dropdown-arrow">▼</span>
+                 Žebříček <span class="dropdown-arrow">▼</span>
               </a>
               <div class="nav-dropdown-menu">
                 <a href="{{ url_for('leaderboard') }}" onclick="closeMobileMenu()">Hlavní žebříček</a>
@@ -3203,12 +3203,12 @@ BASE_HTML = r"""
               </div>
             </div>
             
-            <a href="{{ url_for('extras') }}" onclick="closeMobileMenu()">🎯 Extra</a>
-            <a href="{{ url_for('archive') }}" onclick="closeMobileMenu()">📦 Archiv</a>
+            <a href="{{ url_for('extras') }}" onclick="closeMobileMenu()"> Extra</a>
+            <a href="{{ url_for('archive') }}" onclick="closeMobileMenu()"> Archiv</a>
             
             <div class="nav-dropdown">
               <a href="#" class="nav-dropdown-toggle" onclick="toggleDropdown(event)">
-                📈 Stats <span class="dropdown-arrow">▼</span>
+                 Stats <span class="dropdown-arrow">▼</span>
               </a>
               <div class="nav-dropdown-menu">
                 <a href="{{ url_for('my_stats') }}" onclick="closeMobileMenu()">Moje statistiky</a>
@@ -3229,8 +3229,8 @@ BASE_HTML = r"""
                   <a href="{{ url_for('admin_bulk_edit') }}" onclick="closeMobileMenu()">Bulk Edit</a>
                   <a href="{{ url_for('admin_undo') }}" onclick="closeMobileMenu()">Undo</a>
                   <a href="{{ url_for('admin_users') }}" onclick="closeMobileMenu()">Uživatelé</a>
-                  <a href="{{ url_for('admin_api_sources') }}" onclick="closeMobileMenu()">🔌 API Zdroje</a>
-                  <a href="{{ url_for('admin_backup') }}" onclick="closeMobileMenu()">💾 Záloha</a>
+                  <a href="{{ url_for('admin_api_sources') }}" onclick="closeMobileMenu()"> API Zdroje</a>
+                  <a href="{{ url_for('admin_backup') }}" onclick="closeMobileMenu()"> Záloha</a>
                   <a href="{{ url_for('admin_audit') }}" onclick="closeMobileMenu()">Historie</a>
                 </div>
               </div>
@@ -3238,7 +3238,7 @@ BASE_HTML = r"""
             
             <div class="nav-dropdown">
               <a href="#" class="nav-dropdown-toggle" onclick="toggleDropdown(event)">
-                👤 {{ current_user.display_name }} <span class="dropdown-arrow">▼</span>
+                 {{ current_user.display_name }} <span class="dropdown-arrow">▼</span>
               </a>
               <div class="nav-dropdown-menu">
                 <a href="{{ url_for('change_password') }}" onclick="closeMobileMenu()">Změnit heslo</a>
@@ -3274,7 +3274,7 @@ BASE_HTML = r"""
   <!-- PWA Install Banner -->
   <div class="pwa-install-banner" id="pwa-banner">
     <div>
-      <strong>📱 Instaluj aplikaci</strong>
+      <strong> Instaluj aplikaci</strong>
       <div style="font-size: 13px; opacity: 0.9; margin-top: 4px;">
         Přidej si Tipovačku na plochu!
       </div>
@@ -3501,7 +3501,7 @@ BASE_HTML = r"""
     {% if current_user.is_admin_effective %}
       <!-- Admin verze -->
       <a href="{{ url_for('admin_dashboard') }}" class="bottom-nav-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
-        <div class="nav-icon">👨‍💼</div>
+        <div class="nav-icon">‍</div>
         <div>Dashboard</div>
       </a>
       <a href="{{ url_for('admin_bulk_edit') }}" class="bottom-nav-item {% if request.endpoint == 'admin_bulk_edit' %}active{% endif %}">
@@ -3509,29 +3509,29 @@ BASE_HTML = r"""
         <div>Bulk Edit</div>
       </a>
       <a href="{{ url_for('admin_undo') }}" class="bottom-nav-item {% if request.endpoint == 'admin_undo' %}active{% endif %}">
-        <div class="nav-icon">🔄</div>
+        <div class="nav-icon"></div>
         <div>Undo</div>
       </a>
       <a href="{{ url_for('admin_import') }}" class="bottom-nav-item {% if request.endpoint == 'admin_import' %}active{% endif %}">
-        <div class="nav-icon">📥</div>
+        <div class="nav-icon"></div>
         <div>Import</div>
       </a>
     {% else %}
       <!-- User verze -->
       <a href="{{ url_for('leaderboard') }}" class="bottom-nav-item {% if request.endpoint == 'leaderboard' %}active{% endif %}">
-        <div class="nav-icon">🏆</div>
+        <div class="nav-icon"></div>
         <div>Žebříček</div>
       </a>
       <a href="{{ url_for('my_tips') }}" class="bottom-nav-item {% if request.endpoint == 'my_tips' %}active{% endif %}">
-        <div class="nav-icon">🎯</div>
+        <div class="nav-icon"></div>
         <div>Tipy</div>
       </a>
       <a href="{{ url_for('profile') }}" class="bottom-nav-item {% if request.endpoint == 'profile' %}active{% endif %}">
-        <div class="nav-icon">👤</div>
+        <div class="nav-icon"></div>
         <div>Profil</div>
       </a>
       <a href="{{ url_for('archive') }}" class="bottom-nav-item {% if request.endpoint == 'archive' %}active{% endif %}">
-        <div class="nav-icon">📚</div>
+        <div class="nav-icon"></div>
         <div>Archiv</div>
       </a>
     {% endif %}
@@ -3541,7 +3541,7 @@ BASE_HTML = r"""
   <!-- Push Notification Button (floating) -->
   {% if current_user.is_authenticated %}
   <button id="push-notification-btn" class="push-notif-btn" draggable="true" style="display:none;" title="Notifikace (přesouvatelné)">
-    <span id="push-icon">🔔</span>
+    <span id="push-icon"></span>
   </button>
   {% endif %}
   
@@ -3728,7 +3728,7 @@ BASE_HTML = r"""
           });
           
           updateUI(false);
-          showToast('🔕 Notifikace zakázány');
+          showToast(' Notifikace zakázány');
           
         } catch (error) {
           console.error('Unsubscribe error:', error);
@@ -3738,11 +3738,11 @@ BASE_HTML = r"""
       
       function updateUI(isSubscribed) {
         if (isSubscribed) {
-          icon.textContent = '🔔';
+          icon.textContent = '';
           btn.classList.remove('disabled');
           btn.title = 'Zakázat notifikace';
         } else {
-          icon.textContent = '🔕';
+          icon.textContent = '';
           btn.classList.add('disabled');
           btn.title = 'Povolit notifikace';
         }
@@ -3965,13 +3965,13 @@ def fetch_nhl_games(season: str = "20252026", team: str = None) -> List[Dict]:
             # Pro celou sezónu použij schedule endpoint
             url = f"https://api-web.nhle.com/v1/schedule/now"
         
-        print(f"🏒 NHL API: Stahuji z {url}")
+        print(f" NHL API: Stahuji z {url}")
         
         response = requests.get(url, timeout=15)
         response.raise_for_status()
         data = response.json()
         
-        print(f"🏒 NHL API: Response status {response.status_code}")
+        print(f" NHL API: Response status {response.status_code}")
         
         games = []
         
@@ -3988,7 +3988,7 @@ def fetch_nhl_games(season: str = "20252026", team: str = None) -> List[Dict]:
             print(f"⚠️ NHL API: Neočekávaná struktura dat: {list(data.keys())}")
             return []
         
-        print(f"🏒 NHL API: Nalezeno {len(game_list)} zápasů")
+        print(f" NHL API: Nalezeno {len(game_list)} zápasů")
         
         for game in game_list:
             # Kontrola stavu zápasu
@@ -4482,7 +4482,7 @@ def fetch_uefa_ucl_all_fixtures(url: Optional[str] = None) -> List[Dict]:
             "shootout": False
         })
 
-    print(f"🏆 UEFA UCL: Nalezeno {len(games)} zápasů (All fixtures)")
+    print(f" UEFA UCL: Nalezeno {len(games)} zápasů (All fixtures)")
     return games
 
 
@@ -4858,7 +4858,7 @@ def register_routes(app: Flask) -> None:
                 email_sent = send_verification_email(u, base_url)
                 
                 if email_sent:
-                    flash("📧 Registrace OK! Zkontroluj email a potvrď registraci.", "ok")
+                    flash(" Registrace OK! Zkontroluj email a potvrď registraci.", "ok")
                 else:
                     flash("⚠️ Registrace OK, ale nepodařilo se poslat potvrzovací email. Kontaktuj admina.", "warning")
             else:
@@ -5019,7 +5019,7 @@ def register_routes(app: Flask) -> None:
                 base_url = request.url_root.rstrip('/')
                 send_password_reset_email(user, base_url)
             
-            flash("📧 Pokud email existuje, poslali jsme ti odkaz na reset hesla. Zkontroluj schránku.", "ok")
+            flash(" Pokud email existuje, poslali jsme ti odkaz na reset hesla. Zkontroluj schránku.", "ok")
             return redirect(url_for("login"))
         
         return render_page(r"""
@@ -5034,7 +5034,7 @@ def register_routes(app: Flask) -> None:
       <input name="email" type="email" placeholder="tvuj@email.cz" required autofocus>
     </div>
     <div class="row" style="gap:10px;">
-      <button class="btn btn-primary" type="submit">📧 Poslat reset link</button>
+      <button class="btn btn-primary" type="submit"> Poslat reset link</button>
       <a class="btn" href="{{ url_for('login') }}">Zrušit</a>
     </div>
   </form>
@@ -5109,7 +5109,7 @@ def register_routes(app: Flask) -> None:
       <input name="confirm_password" type="password" placeholder="Zadej heslo znovu" required minlength="8">
     </div>
     <div class="row" style="gap:10px;">
-      <button class="btn btn-primary" type="submit">🔑 Nastavit heslo</button>
+      <button class="btn btn-primary" type="submit"> Nastavit heslo</button>
       <a class="btn" href="{{ url_for('login') }}">Zrušit</a>
     </div>
   </form>
@@ -5454,47 +5454,47 @@ def register_routes(app: Flask) -> None:
     </a>
     
     <a href="{{ url_for('leaderboard') }}" class="grid-item">
-      <div class="grid-icon">📊</div>
+      <div class="grid-icon"></div>
       <div class="grid-label">Žebříček</div>
     </a>
     
     <a href="{{ url_for('mini_leaderboards') }}" class="grid-item">
-      <div class="grid-icon">🏅</div>
+      <div class="grid-icon"></div>
       <div class="grid-label">Mini žebříčky</div>
     </a>
     
     <a href="{{ url_for('compare') }}" class="grid-item">
-      <div class="grid-icon">🆚</div>
+      <div class="grid-icon"></div>
       <div class="grid-label">Porovnat</div>
     </a>
     
     <a href="{{ url_for('my_tips') }}" class="grid-item">
-      <div class="grid-icon">🎯</div>
+      <div class="grid-icon"></div>
       <div class="grid-label">Moje tipy</div>
     </a>
     
     <a href="{{ url_for('my_stats') }}" class="grid-item">
-      <div class="grid-icon">📈</div>
+      <div class="grid-icon"></div>
       <div class="grid-label">Statistiky</div>
     </a>
     
     <a href="{{ url_for('achievements') }}" class="grid-item">
-      <div class="grid-icon">🏆</div>
+      <div class="grid-icon"></div>
       <div class="grid-label">Achievementy</div>
     </a>
     
     <a href="{{ url_for('extras') }}" class="grid-item">
-      <div class="grid-icon">🎯</div>
+      <div class="grid-icon"></div>
       <div class="grid-label">Extra</div>
     </a>
     
     <a href="{{ url_for('archive') }}" class="grid-item">
-      <div class="grid-icon">📚</div>
+      <div class="grid-icon"></div>
       <div class="grid-label">Archiv</div>
     </a>
     
     <a href="{{ url_for('dashboard') }}" class="grid-item">
-      <div class="grid-icon">📊</div>
+      <div class="grid-icon"></div>
       <div class="grid-label">Dashboard</div>
     </a>
     
@@ -5507,7 +5507,7 @@ def register_routes(app: Flask) -> None:
     
     <a href="{{ url_for('admin_dashboard') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">🏅</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">Admin Dashboard</div>
       </div>
       <div class="admin-card-desc">Přehled a statistiky</div>
@@ -5523,7 +5523,7 @@ def register_routes(app: Flask) -> None:
     
     <a href="{{ url_for('admin_import') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">📥</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">Import</div>
       </div>
       <div class="admin-card-desc">Importovat data</div>
@@ -5531,7 +5531,7 @@ def register_routes(app: Flask) -> None:
     
     <a href="{{ url_for('admin_export_hub') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">📤</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">Export</div>
       </div>
       <div class="admin-card-desc">Exportovat data</div>
@@ -5547,7 +5547,7 @@ def register_routes(app: Flask) -> None:
     
     <a href="{{ url_for('admin_rounds') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">🎮</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">Soutěže</div>
       </div>
       <div class="admin-card-desc">Správa soutěží</div>
@@ -5555,7 +5555,7 @@ def register_routes(app: Flask) -> None:
     
     <a href="{{ url_for('admin_users') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">👥</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">Uživatelé</div>
       </div>
       <div class="admin-card-desc">Správa userů</div>
@@ -5563,7 +5563,7 @@ def register_routes(app: Flask) -> None:
     
     <a href="{{ url_for('admin_api_sources') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">🔌</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">API Zdroje</div>
       </div>
       <div class="admin-card-desc">Fotbal & hokej API</div>
@@ -5571,7 +5571,7 @@ def register_routes(app: Flask) -> None:
 
     <a href="{{ url_for('admin_team_aliases') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">🔁</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">Aliasy týmů</div>
       </div>
       <div class="admin-card-desc">Mapování zkratek pro import</div>
@@ -5579,7 +5579,7 @@ def register_routes(app: Flask) -> None:
 
     <a href="{{ url_for('admin_smart_import') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">🤖</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">Smart Import</div>
       </div>
       <div class="admin-card-desc">AI parsování zápasů</div>
@@ -5597,33 +5597,33 @@ def register_routes(app: Flask) -> None:
     <div class="collapse-content">
       
       <a href="{{ url_for('notification_settings') }}" class="collapse-item">
-        <div class="collapse-item-icon">🔔</div>
+        <div class="collapse-item-icon"></div>
         <div class="collapse-item-text">Nastavení notifikací</div>
         <div class="collapse-item-arrow">›</div>
       </a>
       
       <a href="{{ url_for('archive_compare') }}" class="collapse-item">
-        <div class="collapse-item-icon">🆚</div>
+        <div class="collapse-item-icon"></div>
         <div class="collapse-item-text">Srovnat soutěže</div>
         <div class="collapse-item-arrow">›</div>
       </a>
       
       <a href="{{ url_for('archive_calendar') }}" class="collapse-item">
-        <div class="collapse-item-icon">📅</div>
+        <div class="collapse-item-icon"></div>
         <div class="collapse-item-text">Kalendář soutěží</div>
         <div class="collapse-item-arrow">›</div>
       </a>
       
       {% if current_user.is_admin_effective %}
       <a href="{{ url_for('admin_audit') }}" class="collapse-item">
-        <div class="collapse-item-icon">📋</div>
+        <div class="collapse-item-icon"></div>
         <div class="collapse-item-text">Audit log</div>
         <div class="collapse-item-arrow">›</div>
       </a>
       {% endif %}
       
       <a href="{{ url_for('logout') }}" class="collapse-item">
-        <div class="collapse-item-icon">🚪</div>
+        <div class="collapse-item-icon"></div>
         <div class="collapse-item-text">Odhlásit se</div>
         <div class="collapse-item-arrow">›</div>
       </a>
@@ -5820,7 +5820,7 @@ function toggleCollapse(header) {
 </style>
 
 <div class="card">
-  <h2 style="margin: 0 0 8px 0;">📊 Dashboard</h2>
+  <h2 style="margin: 0 0 8px 0;"> Dashboard</h2>
   <div class="muted">Soutěž: <b>{{ r.name }}</b></div>
 </div>
 
@@ -5872,15 +5872,15 @@ function toggleCollapse(header) {
 
     <div class="stat-card">
       <div class="stat-label">
-        Hot Streak 🔥
+        Hot Streak 
         <span style="font-size: 11px; font-weight: 400; opacity: 0.7; margin-left: 6px;" title="Nejdelší série správných tipů po sobě">ⓘ</span>
       </div>
       <div class="stat-number" style="font-size: 32px;">{{ max_streak }}</div>
       <div class="muted">
         {% if max_streak >= 5 %}
-          <span class="streak-badge">🔥 V ohni!</span>
+          <span class="streak-badge"> V ohni!</span>
         {% elif max_streak >= 3 %}
-          <span class="streak-badge">💪 Dobrá forma</span>
+          <span class="streak-badge"> Dobrá forma</span>
         {% elif max_streak > 0 %}
           <span class="streak-badge cold">Začínáš</span>
         {% else %}
@@ -5897,7 +5897,7 @@ function toggleCollapse(header) {
 <!-- Graf vývoje -->
 {% if graph_data|length > 0 %}
 <div class="card stats-section">
-  <h3 style="margin: 0 0 15px 0;">📈 Vývoj bodů (posledních {{ graph_data|length }} zápasů)</h3>
+  <h3 style="margin: 0 0 15px 0;"> Vývoj bodů (posledních {{ graph_data|length }} zápasů)</h3>
   <div class="chart-container">
     <div class="chart-bars">
       {% for item in graph_data %}
@@ -5921,7 +5921,7 @@ function toggleCollapse(header) {
 <!-- Nejlepší/nejhorší zápas -->
 {% if best_match or worst_match %}
 <div class="card stats-section">
-  <h3 style="margin: 0 0 15px 0;">🎯 Tvoje výkony</h3>
+  <h3 style="margin: 0 0 15px 0;"> Tvoje výkony</h3>
   
   {% if best_match %}
   <div class="match-highlight best">
@@ -5935,7 +5935,7 @@ function toggleCollapse(header) {
     {% if my_tip %}
       <div class="muted" style="font-size: 12px;">
         Tvůj tip: {{ my_tip.tip_home }}:{{ my_tip.tip_away }}
-        {% if best_points == 3 %}🎯 Přesný tip!{% elif best_points == 1 %}✓ Správný výsledek{% endif %}
+        {% if best_points == 3 %} Přesný tip!{% elif best_points == 1 %}✓ Správný výsledek{% endif %}
       </div>
     {% endif %}
   </div>
@@ -5961,11 +5961,11 @@ function toggleCollapse(header) {
 {% endif %}
 
 <div class="card">
-  <h3 style="margin: 0 0 15px 0;">🏆 Top 3</h3>
+  <h3 style="margin: 0 0 15px 0;"> Top 3</h3>
   {% for item in top3 %}
     <div class="row" style="justify-content: space-between; margin-bottom: 10px;">
       <div>
-        <span style="font-size: 20px; margin-right: 10px;">{% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% else %}🥉{% endif %}</span>
+        <span style="font-size: 20px; margin-right: 10px;">{% if loop.index == 1 %}{% elif loop.index == 2 %}{% else %}{% endif %}</span>
         <strong>{{ item.user.username }}</strong>
       </div>
       <div style="font-weight: 900; font-size: 18px;">{{ item.total }}</div>
@@ -6003,7 +6003,7 @@ function toggleCollapse(header) {
 <div class="card">
   <h3 style="margin: 0 0 15px 0;">Rychlé odkazy</h3>
   <div class="quick-actions">
-    <a class="btn btn-primary" href="{{ url_for('my_stats') }}">📊 Detailní statistiky</a>
+    <a class="btn btn-primary" href="{{ url_for('my_stats') }}"> Detailní statistiky</a>
     <a class="btn" href="{{ url_for('matches') }}">Zápasy</a>
     <a class="btn" href="{{ url_for('extras') }}">Extra otázky</a>
     <a class="btn" href="{{ url_for('leaderboard') }}">Žebříček</a>
@@ -6156,7 +6156,7 @@ function toggleCollapse(header) {
 <div class="card">
   <div class="row" style="justify-content: space-between; align-items: center;">
     <div>
-      <h2 style="margin: 0 0 8px 0;">📊 Moje statistiky</h2>
+      <h2 style="margin: 0 0 8px 0;"> Moje statistiky</h2>
       <div class="muted">Soutěž: <b>{{ r.name }}</b> • Vyhodnoceno: {{ total_tips }} zápasů</div>
     </div>
     <a class="btn" href="{{ url_for('dashboard') }}">← Dashboard</a>
@@ -6192,7 +6192,7 @@ function toggleCollapse(header) {
 
 <!-- Srovnání s průměrem -->
 <div class="card">
-  <h3 style="margin: 0 0 15px 0;">📈 Srovnání s průměrem skupiny</h3>
+  <h3 style="margin: 0 0 15px 0;"> Srovnání s průměrem skupiny</h3>
   <div class="comparison-card">
     <div class="muted">Tvůj průměr vs skupinový průměr</div>
     <div class="comparison-number {% if diff_from_avg > 0 %}better{% elif diff_from_avg < 0 %}worse{% else %}equal{% endif %}">
@@ -6220,7 +6220,7 @@ function toggleCollapse(header) {
 
 <!-- Rozdělení bodů -->
 <div class="card">
-  <h3 style="margin: 0 0 15px 0;">🎯 Rozdělení bodů</h3>
+  <h3 style="margin: 0 0 15px 0;"> Rozdělení bodů</h3>
   <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center; justify-content: space-around;">
     <div style="text-align: center;">
       <div style="font-size: 48px; font-weight: 900; color: #ffc107;">{{ exact_tips }}</div>
@@ -6254,7 +6254,7 @@ function toggleCollapse(header) {
 
 <!-- Analýza tendencí -->
 <div class="card">
-  <h3 style="margin: 0 0 15px 0;">🎲 Tvoje tipovací tendence</h3>
+  <h3 style="margin: 0 0 15px 0;"> Tvoje tipovací tendence</h3>
   <div class="stats-grid">
     <div class="mini-stat">
       <div class="mini-stat-label">Výhry domácích</div>
@@ -6430,7 +6430,7 @@ function toggleCollapse(header) {
 <div class="card">
   <div class="row" style="justify-content: space-between; align-items: center;">
     <div>
-      <h2 style="margin: 0 0 8px 0;">🏆 Moje achievementy</h2>
+      <h2 style="margin: 0 0 8px 0;"> Moje achievementy</h2>
       <div class="muted">Soutěž: <b>{{ r.name }}</b></div>
     </div>
     <a class="btn" href="{{ url_for('dashboard') }}">← Dashboard</a>
@@ -6462,7 +6462,7 @@ function toggleCollapse(header) {
         </div>
       {% else %}
         <div class="achievement-badge badge-locked">
-          🔒 Zamčeno
+           Zamčeno
         </div>
       {% endif %}
     </div>
@@ -6536,7 +6536,7 @@ function toggleCollapse(header) {
             check_and_award_achievements(current_user.id, r.id)
             
             audit("tip.save_all", "Tip", None, count=saved_count)
-            flash(f"💾 Uloženo {saved_count} tipů.", "ok")
+            flash(f" Uloženo {saved_count} tipů.", "ok")
             return redirect(url_for("matches"))
 
         # Načti zápasy k tipování (bez výsledku)
@@ -6638,7 +6638,7 @@ function toggleCollapse(header) {
 {% if not can_user_tip %}
   <div class="card" style="background:rgba(255,77,109,0.08); border-color:rgba(255,77,109,0.3);">
     <div style="text-align:center; padding:20px;">
-      <div style="font-size:48px; margin-bottom:12px;">🚫</div>
+      <div style="font-size:48px; margin-bottom:12px;"></div>
       <h3 style="margin:0 0 8px 0;">Nemáš oprávnění k tipování</h3>
       <div class="muted">Kontaktuj administrátora pro změnu role.</div>
     </div>
@@ -6658,19 +6658,19 @@ function toggleCollapse(header) {
 
   <div class="card">
     <div class="row" style="justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">
-      <h3 style="margin: 0;">📋 Zápasy ({{ total }})</h3>
+      <h3 style="margin: 0;"> Zápasy ({{ total }})</h3>
       <div class="row" style="gap: 8px;">
         {% if current_user.is_admin_effective %}
           <a href="{{ url_for('admin_match_new') }}" class="btn" style="background: rgba(51,209,122,.15); color: #33d17a; border: 1px solid rgba(51,209,122,.3);">
             ➕ Přidat zápas
           </a>
         {% endif %}
-        <button type="submit" class="btn btn-primary">💾 Uložit všechny tipy</button>
+        <button type="submit" class="btn btn-primary"> Uložit všechny tipy</button>
       </div>
     </div>
     
     <div class="muted" style="margin-bottom:12px; padding:10px; background:rgba(110,168,254,0.08); border-radius:8px; border:1px solid rgba(110,168,254,0.2);">
-      💡 <strong>Tip:</strong> Zadej tipy do tabulky a klikni "Uložit všechny tipy" dole. Prázdné pole = 0.
+       <strong>Tip:</strong> Zadej tipy do tabulky a klikni "Uložit všechny tipy" dole. Prázdné pole = 0.
     </div>
     
     <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
@@ -6726,12 +6726,12 @@ function toggleCollapse(header) {
     
     <div style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
       <div class="muted" style="font-size: 13px;">
-        📊 Natipováno <b>{{ with_tips }}/{{ total }}</b> zápasů
+         Natipováno <b>{{ with_tips }}/{{ total }}</b> zápasů
         {% if without_tips > 0 %}
           • <span style="color: var(--warn);">Zbývá {{ without_tips }}</span>
         {% endif %}
       </div>
-      <button type="submit" class="btn btn-primary">💾 Uložit všechny tipy</button>
+      <button type="submit" class="btn btn-primary"> Uložit všechny tipy</button>
     </div>
   </div>
 </form>
@@ -7102,7 +7102,7 @@ inputs.forEach((input, index) => {
           </select>
         </form>
         <a href="{{ url_for('mini_leaderboards') }}" class="btn" style="background: rgba(139,92,246,.15); color: #8b5cf6; border: 1px solid rgba(139,92,246,.3);">
-          🏅 Mini žebříčky
+           Mini žebříčky
         </a>
       </div>
     </div>
@@ -7112,7 +7112,7 @@ inputs.forEach((input, index) => {
           ➕ Přidat zápas
         </a>
         <div class="muted" style="font-size:12px; padding:8px; background:rgba(110,168,254,0.1); border-radius:6px;">
-          💡 Klikni na výsledek pro úpravu
+           Klikni na výsledek pro úpravu
         </div>
         <a class="btn" href="{{ url_for('matches') }}">Vyhodnocení zápasů</a>
       </div>
@@ -7138,7 +7138,7 @@ inputs.forEach((input, index) => {
               <div class="vertical-text">
                 {{ eq.question[:30] }}{% if eq.question|length > 30 %}...{% endif %}
                 {% if eq.deadline and eq.deadline > current_time %}
-                  <br><small style="color:#888;">🔒 {{ eq.deadline.strftime('%d.%m.') }}</small>
+                  <br><small style="color:#888;"> {{ eq.deadline.strftime('%d.%m.') }}</small>
                 {% endif %}
               </div>
             </th>
@@ -7179,7 +7179,7 @@ inputs.forEach((input, index) => {
                      style="opacity: 0.6; font-size: 12px; text-decoration: none; transition: opacity 0.2s;"
                      onmouseover="this.style.opacity='1'"
                      onmouseout="this.style.opacity='0.6'">
-                    🆚
+                    
                   </a>
                 {% endif %}
               </div>
@@ -7297,7 +7297,7 @@ inputs.forEach((input, index) => {
 
       <div style="display:flex; gap:10px;">
         <button type="submit" class="btn btn-primary" style="flex:1; padding:12px; font-weight:900;">
-          💾 Uložit výsledek
+           Uložit výsledek
         </button>
         <button type="button" class="btn" onclick="closeScoreModal()" style="flex:1; padding:12px;">
           Zrušit
@@ -7307,7 +7307,7 @@ inputs.forEach((input, index) => {
       <div style="margin-top:12px; text-align:center;">
         <button type="button" class="btn btn-sm" onclick="clearScore()"
                 style="background:rgba(255,77,109,0.15); color:#ff4d6d; font-size:12px;">
-          🗑️ Smazat výsledek
+          ️ Smazat výsledek
         </button>
       </div>
     </form>
@@ -7590,12 +7590,12 @@ document.addEventListener('keydown', function(e) {
 </style>
 
 <div class="card">
-  <h2 style="margin: 0 0 8px 0;">📊 Mini Žebříčky</h2>
+  <h2 style="margin: 0 0 8px 0;"> Mini Žebříčky</h2>
   <div class="muted">{{ r.name }} - Speciální kategorie</div>
 </div>
 
 <div class="mini-board">
-  <h3>📅 Nejlepší týden (posledních 7 dní)</h3>
+  <h3> Nejlepší týden (posledních 7 dní)</h3>
   {% if week_leaders %}
     {% for item in week_leaders %}
       <div class="mini-rank">
@@ -7619,7 +7619,7 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 <div class="mini-board">
-  <h3>📆 Nejlepší měsíc (posledních 30 dní)</h3>
+  <h3> Nejlepší měsíc (posledních 30 dní)</h3>
   {% if month_leaders %}
     {% for item in month_leaders %}
       <div class="mini-rank">
@@ -7643,7 +7643,7 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 <div class="mini-board">
-  <h3>📈 Comeback Králové</h3>
+  <h3> Comeback Králové</h3>
   {% if comebacks %}
     {% for item in comebacks %}
       <div class="mini-rank">
@@ -7667,7 +7667,7 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 <div class="mini-board">
-  <h3>🐕 Underdog - Nejlepší poměr body/tipy</h3>
+  <h3> Underdog - Nejlepší poměr body/tipy</h3>
   {% if underdogs %}
     {% for item in underdogs %}
       <div class="mini-rank">
@@ -7910,7 +7910,7 @@ document.addEventListener('keydown', function(e) {
             all_users = User.query.order_by(User.username.asc()).all()
             return render_page(r"""
 <div class="card">
-  <h2 style="margin: 0 0 16px 0;">🆚 Porovnat uživatele</h2>
+  <h2 style="margin: 0 0 16px 0;"> Porovnat uživatele</h2>
   <div class="muted" style="margin-bottom: 20px;">Vyber dva uživatele pro porovnání</div>
   
   <form method="get" action="{{ url_for('compare') }}">
@@ -8151,7 +8151,7 @@ document.addEventListener('keydown', function(e) {
       <div class="muted">bodů celkem</div>
     </div>
     
-    <div class="vs-divider">🆚</div>
+    <div class="vs-divider"></div>
     
     <div class="vs-user">
       <h3>{{ u2.display_name }}</h3>
@@ -8162,7 +8162,7 @@ document.addEventListener('keydown', function(e) {
     </div>
   </div>
   
-  <h3 style="margin: 0 0 16px 0;">📊 Head-to-Head</h3>
+  <h3 style="margin: 0 0 16px 0;"> Head-to-Head</h3>
   <div class="stats-grid">
     <div class="stat-box">
       <div class="stat-label">{{ u1.display_name }} výhry</div>
@@ -8184,7 +8184,7 @@ document.addEventListener('keydown', function(e) {
     </div>
   </div>
   
-  <h3 style="margin: 0 0 16px 0;">🎯 Přesnost</h3>
+  <h3 style="margin: 0 0 16px 0;"> Přesnost</h3>
   <div class="stats-grid">
     <div class="stat-box">
       <div class="stat-label">{{ u1.display_name }} přesné</div>
@@ -8217,7 +8217,7 @@ document.addEventListener('keydown', function(e) {
     </div>
   </div>
   
-  <h3 style="margin: 20px 0 16px 0;">📋 Detail zápasů</h3>
+  <h3 style="margin: 20px 0 16px 0;"> Detail zápasů</h3>
   <div style="background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;">
     <div class="comparison-row" style="background: rgba(255,255,255,.05); font-weight: 900;">
       <div style="text-align: center;">{{ u1.display_name }}</div>
@@ -8355,14 +8355,14 @@ document.addEventListener('keydown', function(e) {
 <div class="card">
   <div class="row" style="justify-content:space-between; flex-wrap: wrap;">
     <div>
-      <h2 style="margin:0;">🎯 Moje tipy</h2>
+      <h2 style="margin:0;"> Moje tipy</h2>
       <div class="muted">Soutěž: <b>{{ r.name }}</b></div>
     </div>
     <div class="row" style="gap: 8px;">
       <div class="tag pill-ok">✅ {{ exact_count }}</div>
-      <div class="tag pill-warn">👍 {{ winner_count }}</div>
+      <div class="tag pill-warn"> {{ winner_count }}</div>
       <div class="tag pill-bad">❌ {{ missed_count }}</div>
-      <div class="tag" style="background: rgba(110,168,254,.15); border-color: rgba(110,168,254,.3);">📊 {{ total_points }}b</div>
+      <div class="tag" style="background: rgba(110,168,254,.15); border-color: rgba(110,168,254,.3);"> {{ total_points }}b</div>
     </div>
   </div>
 </div>
@@ -8805,7 +8805,7 @@ document.addEventListener('keydown', function(e) {
                 Match.home_score != None
             ).count()
             
-            sport_emoji = "⚽" if r.sport.name.lower() == "fotbal" else "🏒" if "hokej" in r.sport.name.lower() else "🏀"
+            sport_emoji = "⚽" if r.sport.name.lower() == "fotbal" else "" if "hokej" in r.sport.name.lower() else ""
             
             rounds_data.append({
                 'round': r,
@@ -8889,11 +8889,11 @@ document.addEventListener('keydown', function(e) {
 <div class="card">
   <div class="row" style="justify-content:space-between; margin-bottom: 16px;">
     <div>
-      <h2 style="margin:0;">📦 Archiv</h2>
+      <h2 style="margin:0;"> Archiv</h2>
       <div class="muted">Ukončené a archivované soutěže</div>
     </div>
     <a href="{{ url_for('archive_stats') }}" class="btn" style="background: rgba(139,92,246,.15); color: #8b5cf6; border: 1px solid rgba(139,92,246,.3);">
-      📊 Hall of Fame
+       Hall of Fame
     </a>
   </div>
 </div>
@@ -8914,7 +8914,7 @@ document.addEventListener('keydown', function(e) {
           </div>
         </div>
         <a href="{{ url_for('archive_detail', round_id=rd.round.id) }}" class="btn btn-primary">
-          📊 Detail
+           Detail
         </a>
       </div>
       
@@ -8932,11 +8932,11 @@ document.addEventListener('keydown', function(e) {
           <span><span class="stat-value">{{ rd.finished_count }}</span> dokončeno</span>
         </div>
         <div class="stat-item">
-          <span>👥</span>
+          <span></span>
           <span><span class="stat-value">{{ rd.tippers_count }}</span> tipérů</span>
         </div>
         <div class="stat-item">
-          <span>📈</span>
+          <span></span>
           <span><span class="stat-value">{{ rd.progress_pct }}%</span> hotovo</span>
         </div>
       </div>
@@ -8944,11 +8944,11 @@ document.addEventListener('keydown', function(e) {
   {% endfor %}
 {% else %}
   <div class="empty-state">
-    <div style="font-size: 64px; margin-bottom: 16px;">📦</div>
+    <div style="font-size: 64px; margin-bottom: 16px;"></div>
     <h3 style="margin: 0 0 8px 0;">Žádné archivované soutěže</h3>
     <div class="muted">
       Když admin archivuje soutěž, objeví se zde.<br>
-      Archivuj soutěž v Správa soutěží → 📦 Archivovat
+      Archivuj soutěž v Správa soutěží →  Archivovat
     </div>
   </div>
 {% endif %}
@@ -8966,7 +8966,7 @@ document.addEventListener('keydown', function(e) {
         if not archived_rounds:
             return render_page(r"""
 <div class="card">
-  <h2 style="margin: 0 0 16px 0;">🏆 Hall of Fame</h2>
+  <h2 style="margin: 0 0 16px 0;"> Hall of Fame</h2>
   <div class="muted">Zatím nejsou žádné archivované soutěže.</div>
   <a href="{{ url_for('archive') }}" class="btn" style="margin-top: 16px;">← Zpět na archiv</a>
 </div>
@@ -9153,7 +9153,7 @@ document.addEventListener('keydown', function(e) {
 <div class="card">
   <div class="row" style="justify-content: space-between; margin-bottom: 20px;">
     <div>
-      <h2 style="margin: 0;">🏆 Hall of Fame</h2>
+      <h2 style="margin: 0;"> Hall of Fame</h2>
       <div class="muted">Celkové statistiky archivovaných soutěží</div>
     </div>
     <a href="{{ url_for('archive') }}" class="btn">← Zpět na archiv</a>
@@ -9176,7 +9176,7 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 <div class="hof-section">
-  <div class="hof-title">👑 Nejvíc výher</div>
+  <div class="hof-title"> Nejvíc výher</div>
   {% for item in most_wins %}
     <div class="hof-item">
       <div class="hof-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
@@ -9194,7 +9194,7 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 <div class="hof-section">
-  <div class="hof-title">💯 Nejvíc účastí</div>
+  <div class="hof-title"> Nejvíc účastí</div>
   {% for item in most_active %}
     <div class="hof-item">
       <div class="hof-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
@@ -9212,7 +9212,7 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 <div class="hof-section">
-  <div class="hof-title">📊 Nejlepší průměr (min 3)</div>
+  <div class="hof-title"> Nejlepší průměr (min 3)</div>
   {% for item in best_avg %}
     <div class="hof-item">
       <div class="hof-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
@@ -9230,7 +9230,7 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 <div class="hof-section">
-  <div class="hof-title">🎯 Nejvíc bodů celkem</div>
+  <div class="hof-title"> Nejvíc bodů celkem</div>
   {% for item in most_points %}
     <div class="hof-item">
       <div class="hof-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
@@ -9248,7 +9248,7 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 <div class="hof-section">
-  <div class="hof-title">💎 Nejvíc přesných</div>
+  <div class="hof-title"> Nejvíc přesných</div>
   {% for item in most_exact %}
     <div class="hof-item">
       <div class="hof-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
@@ -9438,7 +9438,7 @@ canvas {
   <div class="row" style="justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
     <div>
       <h2 style="margin:0 0 4px 0;">
-        {% if r.sport.name|lower == 'fotbal' %}⚽{% elif 'hokej' in r.sport.name|lower %}🏒{% else %}🏀{% endif %}
+        {% if r.sport.name|lower == 'fotbal' %}⚽{% elif 'hokej' in r.sport.name|lower %}{% else %}{% endif %}
         {{ r.name }}
       </h2>
       <div class="muted">{{ r.sport.name }} • Detail soutěže</div>
@@ -9448,10 +9448,10 @@ canvas {
   
   <!-- Tabs Navigation -->
   <div class="tab-nav">
-    <button class="tab-btn {% if active_tab == 'overview' %}active{% endif %}" onclick="switchTab('overview')">📊 Přehled</button>
-    <button class="tab-btn {% if active_tab == 'stats' %}active{% endif %}" onclick="switchTab('stats')">📈 Statistiky</button>
-    <button class="tab-btn {% if active_tab == 'export' %}active{% endif %}" onclick="switchTab('export')">📥 Export</button>
-    <button class="tab-btn {% if active_tab == 'import' %}active{% endif %}" onclick="switchTab('import')">📤 Import</button>
+    <button class="tab-btn {% if active_tab == 'overview' %}active{% endif %}" onclick="switchTab('overview')"> Přehled</button>
+    <button class="tab-btn {% if active_tab == 'stats' %}active{% endif %}" onclick="switchTab('stats')"> Statistiky</button>
+    <button class="tab-btn {% if active_tab == 'export' %}active{% endif %}" onclick="switchTab('export')"> Export</button>
+    <button class="tab-btn {% if active_tab == 'import' %}active{% endif %}" onclick="switchTab('import')"> Import</button>
   </div>
   
   <!-- OVERVIEW TAB -->
@@ -9475,7 +9475,7 @@ canvas {
       </div>
     </div>
     
-    <h3 style="margin: 24px 0 12px 0;">🏆 Finální žebříček</h3>
+    <h3 style="margin: 24px 0 12px 0;"> Finální žebříček</h3>
     {% if leaderboard|length > 0 %}
     <div style="overflow-x: auto;">
       <table class="lb" style="width: 100%;">
@@ -9494,9 +9494,9 @@ canvas {
           {% for lb in leaderboard[:10] %}
           <tr>
             <td style="text-align: left;">
-              {% if loop.index == 1 %}🥇
-              {% elif loop.index == 2 %}🥈
-              {% elif loop.index == 3 %}🥉
+              {% if loop.index == 1 %}
+              {% elif loop.index == 2 %}
+              {% elif loop.index == 3 %}
               {% else %}{{ loop.index }}.
               {% endif %}
             </td>
@@ -9519,7 +9519,7 @@ canvas {
   <!-- STATS TAB -->
   <div id="tab-stats" class="tab-content {% if active_tab == 'stats' %}active{% endif %}">
     
-    <h3 style="margin: 0 0 12px 0;">📊 Grafy</h3>
+    <h3 style="margin: 0 0 12px 0;"> Grafy</h3>
     
     <!-- Žebříček -->
     <div class="stat-card">
@@ -9533,7 +9533,7 @@ canvas {
       <canvas id="accuracy-chart"></canvas>
     </div>
     
-    <h3 style="margin: 24px 0 12px 0;">🎯 Best & Worst Zápasy</h3>
+    <h3 style="margin: 24px 0 12px 0;"> Best & Worst Zápasy</h3>
     
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
       <div>
@@ -9578,7 +9578,7 @@ canvas {
       </div>
       
       <div>
-        <h4 style="margin: 0 0 12px 0; color: #94a3b8;">🔒 Nejméně gólů</h4>
+        <h4 style="margin: 0 0 12px 0; color: #94a3b8;"> Nejméně gólů</h4>
         {% for ms in lowest_scoring %}
         <div class="match-card" style="border-left-color: #94a3b8;">
           <div><b>{{ ms.match.home_team.name }} vs {{ ms.match.away_team.name }}</b></div>
@@ -9594,13 +9594,13 @@ canvas {
   
   <!-- EXPORT TAB -->
   <div id="tab-export" class="tab-content {% if active_tab == 'export' %}active{% endif %}">
-    <h3 style="margin: 0 0 12px 0;">📥 Export dat</h3>
+    <h3 style="margin: 0 0 12px 0;"> Export dat</h3>
     <p class="muted">Stáhni data této soutěže v různých formátech</p>
     
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 20px;">
       
       <div class="stat-card">
-        <h4 style="margin: 0 0 8px 0;">📊 Žebříček</h4>
+        <h4 style="margin: 0 0 8px 0;"> Žebříček</h4>
         <p class="muted" style="font-size: 12px; margin-bottom: 12px;">Export finálního žebříčku</p>
         <div class="row" style="gap: 8px;">
           <a href="/archive/{{ r.id }}/export/leaderboard/csv" class="btn btn-sm">CSV</a>
@@ -9609,7 +9609,7 @@ canvas {
       </div>
       
       <div class="stat-card">
-        <h4 style="margin: 0 0 8px 0;">🎯 Všechny tipy</h4>
+        <h4 style="margin: 0 0 8px 0;"> Všechny tipy</h4>
         <p class="muted" style="font-size: 12px; margin-bottom: 12px;">Kompletní tipy všech uživatelů</p>
         <div class="row" style="gap: 8px;">
           <a href="/archive/{{ r.id }}/export/tips/csv" class="btn btn-sm">CSV</a>
@@ -9627,7 +9627,7 @@ canvas {
       </div>
       
       <div class="stat-card">
-        <h4 style="margin: 0 0 8px 0;">📦 Kompletní archiv</h4>
+        <h4 style="margin: 0 0 8px 0;"> Kompletní archiv</h4>
         <p class="muted" style="font-size: 12px; margin-bottom: 12px;">Všechna data najednou (backup)</p>
         <div class="row" style="gap: 8px;">
           <a href="/archive/{{ r.id }}/export/full/json" class="btn btn-sm">JSON</a>
@@ -9639,7 +9639,7 @@ canvas {
   
   <!-- IMPORT TAB -->
   <div id="tab-import" class="tab-content {% if active_tab == 'import' %}active{% endif %}">
-    <h3 style="margin: 0 0 12px 0;">📤 Import archivu</h3>
+    <h3 style="margin: 0 0 12px 0;"> Import archivu</h3>
     <p class="muted">Obnov data z dříve exportovaného archivu (disaster recovery)</p>
     
     <div class="stat-card" style="background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.3); margin-top: 20px;">
@@ -9672,14 +9672,14 @@ canvas {
       </div>
       
       <div class="row" style="gap: 8px;">
-        <button type="submit" class="btn btn-primary">📤 Importovat archiv</button>
+        <button type="submit" class="btn btn-primary"> Importovat archiv</button>
         <button type="button" class="btn" onclick="document.querySelector('input[type=file]').value = ''">Zrušit</button>
       </div>
     </form>
     
     <hr class="sep">
     
-    <h4 style="margin: 16px 0 8px 0;">📝 Formát souboru</h4>
+    <h4 style="margin: 16px 0 8px 0;"> Formát souboru</h4>
     <p class="muted" style="font-size: 14px;">Import soubor musí být JSON s následující strukturou:</p>
     <pre style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px;">
 {
@@ -10168,7 +10168,7 @@ new Chart(document.getElementById('accuracy-chart'), {
 </style>
 
 <div class="card">
-  <h2 style="margin:0 0 8px 0;">🆚 Srovnání soutěží</h2>
+  <h2 style="margin:0 0 8px 0;"> Srovnání soutěží</h2>
   <div class="muted">Porovnej statistiky dvou soutěží</div>
   
   <hr class="sep">
@@ -10202,7 +10202,7 @@ new Chart(document.getElementById('accuracy-chart'), {
   {% if comparison %}
   <div class="compare-card">
     <h3 style="margin: 0 0 20px 0; text-align: center;">
-      {{ comparison.round_a.name }} 🆚 {{ comparison.round_b.name }}
+      {{ comparison.round_a.name }}  {{ comparison.round_b.name }}
     </h3>
     
     <!-- Tipérů -->
@@ -10210,7 +10210,7 @@ new Chart(document.getElementById('accuracy-chart'), {
       <div style="text-align: right;">
         <div class="compare-value">{{ comparison.tippers_a }}</div>
       </div>
-      <div class="muted">👥 Tipérů</div>
+      <div class="muted"> Tipérů</div>
       <div>
         <div class="compare-value">{{ comparison.tippers_b }}</div>
       </div>
@@ -10221,7 +10221,7 @@ new Chart(document.getElementById('accuracy-chart'), {
       <div style="text-align: right;">
         <div class="compare-value">{{ comparison.matches_a }}</div>
       </div>
-      <div class="muted">📊 Zápasů</div>
+      <div class="muted"> Zápasů</div>
       <div>
         <div class="compare-value">{{ comparison.matches_b }}</div>
       </div>
@@ -10232,7 +10232,7 @@ new Chart(document.getElementById('accuracy-chart'), {
       <div style="text-align: right;">
         <div class="compare-value">{{ comparison.tips_a }}</div>
       </div>
-      <div class="muted">🎯 Celkem tipů</div>
+      <div class="muted"> Celkem tipů</div>
       <div>
         <div class="compare-value">{{ comparison.tips_b }}</div>
       </div>
@@ -10243,7 +10243,7 @@ new Chart(document.getElementById('accuracy-chart'), {
       <div style="text-align: right;">
         <div class="compare-value">{{ comparison.avg_a }}</div>
       </div>
-      <div class="muted">📈 Ø tipů/tipér</div>
+      <div class="muted"> Ø tipů/tipér</div>
       <div>
         <div class="compare-value">{{ comparison.avg_b }}</div>
       </div>
@@ -10253,7 +10253,7 @@ new Chart(document.getElementById('accuracy-chart'), {
     <div class="compare-grid">
       <div style="text-align: right;">
         {% if comparison.winner_a %}
-        <div style="font-size: 18px; font-weight: bold;">🏆 {{ comparison.winner_a.user }}</div>
+        <div style="font-size: 18px; font-weight: bold;"> {{ comparison.winner_a.user }}</div>
         <div class="muted">{{ comparison.winner_a.points }} bodů</div>
         {% else %}
         <div class="muted">—</div>
@@ -10262,7 +10262,7 @@ new Chart(document.getElementById('accuracy-chart'), {
       <div class="muted">Vítěz</div>
       <div>
         {% if comparison.winner_b %}
-        <div style="font-size: 18px; font-weight: bold;">🏆 {{ comparison.winner_b.user }}</div>
+        <div style="font-size: 18px; font-weight: bold;"> {{ comparison.winner_b.user }}</div>
         <div class="muted">{{ comparison.winner_b.points }} bodů</div>
         {% else %}
         <div class="muted">—</div>
@@ -10273,7 +10273,7 @@ new Chart(document.getElementById('accuracy-chart'), {
   </div>
   {% else %}
   <div style="text-align: center; padding: 40px;">
-    <div style="font-size: 48px; margin-bottom: 16px;">🆚</div>
+    <div style="font-size: 48px; margin-bottom: 16px;"></div>
     <div class="muted">Vyber 2 soutěže k porovnání</div>
   </div>
   {% endif %}
@@ -10317,7 +10317,7 @@ new Chart(document.getElementById('accuracy-chart'), {
             calendar_data[year][month].append({
                 'round': r,
                 'date': date,
-                'sport_emoji': "⚽" if r.sport.name.lower() == "fotbal" else "🏒" if "hokej" in r.sport.name.lower() else "🏀"
+                'sport_emoji': "⚽" if r.sport.name.lower() == "fotbal" else "" if "hokej" in r.sport.name.lower() else ""
             })
         
         # Sort
@@ -10373,7 +10373,7 @@ new Chart(document.getElementById('accuracy-chart'), {
 </style>
 
 <div class="card">
-  <h2 style="margin:0 0 8px 0;">📅 Kalendář soutěží</h2>
+  <h2 style="margin:0 0 8px 0;"> Kalendář soutěží</h2>
   <div class="muted">Chronologický přehled všech soutěží</div>
   
   <hr class="sep">
@@ -10381,7 +10381,7 @@ new Chart(document.getElementById('accuracy-chart'), {
   {% if calendar_data|length > 0 %}
     {% for year in calendar_data|dictsort(reverse=True) %}
     <div class="calendar-year">
-      <h3 style="margin: 0 0 16px 0; color: #6ea8fe;">📆 {{ year[0] }}</h3>
+      <h3 style="margin: 0 0 16px 0; color: #6ea8fe;"> {{ year[0] }}</h3>
       
       {% for month in year[1]|dictsort(reverse=True) %}
       <div class="calendar-month">
@@ -10409,7 +10409,7 @@ new Chart(document.getElementById('accuracy-chart'), {
     {% endfor %}
   {% else %}
   <div style="text-align: center; padding: 40px;">
-    <div style="font-size: 48px; margin-bottom: 16px;">📅</div>
+    <div style="font-size: 48px; margin-bottom: 16px;"></div>
     <div class="muted">Zatím žádné soutěže</div>
   </div>
   {% endif %}
@@ -10498,7 +10498,7 @@ new Chart(document.getElementById('accuracy-chart'), {
                         continue
                 
                 audit("users.bulk_welcome", "User", None, count=sent_count)
-                flash(f"📧 Welcome emaily odeslány: {sent_count} uživatelům. Mají 24h na nastavení hesla.", "ok")
+                flash(f" Welcome emaily odeslány: {sent_count} uživatelům. Mají 24h na nastavení hesla.", "ok")
 
             return redirect(url_for("admin_users"))
 
@@ -10514,7 +10514,7 @@ new Chart(document.getElementById('accuracy-chart'), {
     <div class="row">
       {% if current_user.is_owner %}<span class="tag pill-ok">Owner admin</span>{% endif %}
       <a class="btn btn-primary" href="{{ url_for('admin_user_new') }}">➕ Nový uživatel</a>
-      <a class="btn" href="{{ url_for('admin_users_import') }}" style="background:#667eea; color:white;">📤 Import uživatelů</a>
+      <a class="btn" href="{{ url_for('admin_users_import') }}" style="background:#667eea; color:white;"> Import uživatelů</a>
     </div>
   </div>
 
@@ -10539,33 +10539,33 @@ new Chart(document.getElementById('accuracy-chart'), {
           </select>
         </div>
         <button type="button" onclick="submitBulkAction('set_role')" class="btn btn-sm">
-          👥 Změnit roli
+           Změnit roli
         </button>
 
         {# Reset hesla #}
         <input type="password" name="new_password" id="bulk_password" placeholder="Nové heslo" style="width:100%;">
         <button type="button" onclick="submitBulkAction('reset_password')" class="btn btn-sm">
-          🔑 Resetovat heslo
+           Resetovat heslo
         </button>
 
         {# Poslat welcome email #}
         <div></div>
         <button type="button" onclick="submitBulkAction('send_welcome_reset')" class="btn btn-sm" style="background:rgba(110,168,254,0.3); color:#0b1020;">
-          📧 Poslat welcome email
+           Poslat welcome email
         </button>
 
         {# Smazat #}
         <div></div>
         <button type="button" onclick="submitBulkDelete()" class="btn btn-sm"
                 style="background:rgba(255,77,109,0.2); color:#ff4d6d; border:1px solid rgba(255,77,109,0.4);">
-          🗑️ Smazat vybrané
+          ️ Smazat vybrané
         </button>
       </div>
 
       <input type="hidden" name="bulk_action" id="bulk_action">
       <div class="muted" style="margin-top:10px; font-size:12px;">
-        💡 Označ uživatele checkboxem, vyber akci a klikni na tlačítko<br>
-        📧 Welcome email = pošle reset link pro nastavení hesla (24h platnost)
+         Označ uživatele checkboxem, vyber akci a klikni na tlačítko<br>
+         Welcome email = pošle reset link pro nastavení hesla (24h platnost)
       </div>
     </div>
 
@@ -10975,7 +10975,7 @@ function submitBulkDelete() {
   <hr class="sep">
   
   <div style="background:rgba(110,168,254,0.08); padding:16px; border-radius:8px; margin-bottom:16px;">
-    <h3 style="margin:0 0 8px 0;">📋 Formát souboru</h3>
+    <h3 style="margin:0 0 8px 0;"> Formát souboru</h3>
     <p><strong>Povinné sloupce:</strong></p>
     <ul>
       <li><code>email</code> - Email uživatele</li>
@@ -10995,9 +10995,9 @@ function submitBulkDelete() {
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     
     <div style="background:rgba(110,168,254,0.1); padding:12px; border-left:4px solid #6ea8fe; margin-bottom:8px;">
-      <strong>💡 Nemáš Excel?</strong> Stáhni si šablonu s hlavičkami a příkladem:
+      <strong> Nemáš Excel?</strong> Stáhni si šablonu s hlavičkami a příkladem:
       <a href="{{ url_for('admin_users_import_template') }}" class="btn btn-sm" style="margin-left:8px;">
-        📥 Stáhnout šablonu Excel
+         Stáhnout šablonu Excel
       </a>
     </div>
     
@@ -11015,7 +11015,7 @@ function submitBulkDelete() {
   <hr class="sep">
   
   <div class="muted" style="font-size:12px;">
-    <p><strong>💡 Postup:</strong></p>
+    <p><strong> Postup:</strong></p>
     <ol>
       <li><strong>Upload</strong> - Nahraj Excel soubor</li>
       <li><strong>Preview</strong> - Zkontroluj kdo se bude importovat a vyber komu poslat email</li>
@@ -11187,7 +11187,7 @@ function submitBulkDelete() {
     </div>
     
     <div style="background:rgba(110,168,254,0.1); padding:12px; border-left:4px solid #6ea8fe; margin-bottom:16px;">
-      <strong>💡 Info:</strong> Uživatelé budou importováni s ověřeným emailem a budou se moci přihlásit.
+      <strong> Info:</strong> Uživatelé budou importováni s ověřeným emailem a budou se moci přihlásit.
       Welcome emaily můžeš poslat později z Admin → Uživatelé → Hromadná správa.
     </div>
     {% endif %}
@@ -11537,7 +11537,7 @@ function submitBulkDelete() {
             text = pytesseract.image_to_string(image, lang='ces+eng', config=custom_config)
             
             print(f"✅ OCR extracted {len(text)} characters")
-            print(f"📝 First 200 chars: {text[:200]}")
+            print(f" First 200 chars: {text[:200]}")
             
             return text.strip()
             
@@ -11584,7 +11584,7 @@ function submitBulkDelete() {
             
             if len(parts) > 1:
                 result = '\n'.join(parts)
-                print(f"🔧 Extracted {len(parts)} lines from joined input")
+                print(f" Extracted {len(parts)} lines from joined input")
                 return result
         
         return text
@@ -11594,7 +11594,7 @@ function submitBulkDelete() {
 
     def _split_joined_lines(text: str) -> str:
         """
-        🔧 FIX: Multiple matches joined on one line (from table copy/paste)
+         FIX: Multiple matches joined on one line (from table copy/paste)
         
         Example:
         Input:  "27. 2. 2026DuklaSlavia0:228. 2. 2026Liberec..."
@@ -11620,7 +11620,7 @@ function submitBulkDelete() {
                 continue
             
             # Multiple dates found - split before each (except first)
-            print(f"🔧 Found {len(matches)} dates in one line - splitting...")
+            print(f" Found {len(matches)} dates in one line - splitting...")
             
             parts = []
             last_end = 0
@@ -11686,7 +11686,7 @@ function submitBulkDelete() {
                 cleaned_lines.append(line)
         
         result = '\n'.join(cleaned_lines)
-        print(f"🧹 OCR cleanup: {len(lines)} lines → {len(cleaned_lines)} cleaned lines")
+        print(f" OCR cleanup: {len(lines)} lines → {len(cleaned_lines)} cleaned lines")
         return result
     
     def _parse_multiline_app_format(text: str) -> List[Dict]:
@@ -11743,7 +11743,7 @@ function submitBulkDelete() {
     
     def smart_parse_matches(text: str, round_id: int = None) -> List[Dict]:
         """
-        🤖 ULTRA SMART PARSER V2 - Better whitespace handling + OCR cleanup
+         ULTRA SMART PARSER V2 - Better whitespace handling + OCR cleanup
         
         Podporované formáty:
         - Table format: "27. 2. 2026DuklaSlavia18:00" 
@@ -11756,7 +11756,7 @@ function submitBulkDelete() {
     @login_required
     def admin_smart_import():
         """
-        🤖 ULTRA SMART IMPORT
+         ULTRA SMART IMPORT
     
         Nakopíruj zápasy odkudkoliv → AI je naparsuje → Preview → Import
         """
@@ -11777,7 +11777,7 @@ function submitBulkDelete() {
                 
                 if screenshot_data and screenshot_data.startswith('data:image'):
                     # Clipboard screenshot mode
-                    print("📸 Clipboard screenshot detected")
+                    print(" Clipboard screenshot detected")
                     
                     try:
                         # Extract base64 data
@@ -11865,7 +11865,7 @@ function submitBulkDelete() {
                 # CRITICAL: Expunge all objects from session to avoid pollution
                 db.session.expunge_all()
                 
-                print(f"🔍 Using round_id: {round_id_int}, round_name: {round_name}")
+                print(f" Using round_id: {round_id_int}, round_name: {round_name}")
             
                 # Import!
                 imported = 0
@@ -11873,15 +11873,15 @@ function submitBulkDelete() {
                 skipped = 0
             
                 for match_data in matches:
-                    print(f"\n🔍 Processing match_data: {match_data}")
-                    print(f"🔍 match_data type: {type(match_data)}")
-                    print(f"🔍 match_data keys: {match_data.keys() if isinstance(match_data, dict) else 'NOT A DICT!'}")
+                    print(f"\n Processing match_data: {match_data}")
+                    print(f" match_data type: {type(match_data)}")
+                    print(f" match_data keys: {match_data.keys() if isinstance(match_data, dict) else 'NOT A DICT!'}")
                     
                     try:
                         home_team = match_data.get('home_team', '').strip()
                         away_team = match_data.get('away_team', '').strip()
                         
-                        print(f"🔍 Extracted teams: home='{home_team}' ({type(home_team)}), away='{away_team}' ({type(away_team)})")
+                        print(f" Extracted teams: home='{home_team}' ({type(home_team)}), away='{away_team}' ({type(away_team)})")
                     
                         if not home_team or not away_team:
                             print(f"⚠️ Přeskakuji zápas - chybí tým: home='{home_team}', away='{away_team}'")
@@ -11927,7 +11927,7 @@ function submitBulkDelete() {
                                 away_score = None
                     
                         # Debug log before creating Match
-                        print(f"🔍 Match data:")
+                        print(f" Match data:")
                         print(f"   round_id={round_id_int} (type={type(round_id_int)})")
                         print(f"   home_team={home_team} (type={type(home_team)})")
                         print(f"   away_team={away_team} (type={type(away_team)})")
@@ -12015,9 +12015,9 @@ function submitBulkDelete() {
                             away_score=away_score,
                         )
                         
-                        print(f"🔍 Match object created: {m}")
-                        print(f"🔍 Match type: {type(m)}")
-                        print(f"🔍 Match.__dict__: {m.__dict__}")
+                        print(f" Match object created: {m}")
+                        print(f" Match type: {type(m)}")
+                        print(f" Match.__dict__: {m.__dict__}")
                     
                         db.session.add(m)
                         
@@ -12096,7 +12096,7 @@ function submitBulkDelete() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🤖 Smart Import | Tipovačka</title>
+  <title> Smart Import | Tipovačka</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
@@ -12393,7 +12393,7 @@ function submitBulkDelete() {
     
     {% if not preview_mode %}
     <div class="card">
-      <h1>🤖 Smart Import V2</h1>
+      <h1> Smart Import V2</h1>
       <div class="subtitle">Nakopíruj zápasy odkudkoliv → AI je naparsuje → Preview → Import</div>
       
       <form method="post" >
@@ -12417,11 +12417,11 @@ function submitBulkDelete() {
           <div class="radio-group">
             <label>
               <input type="radio" name="import_mode" value="fixtures" {% if import_mode != 'results' %}checked{% endif %}>
-              <span>📅 Fixtures (rozpisy)</span>
+              <span> Fixtures (rozpisy)</span>
             </label>
             <label>
               <input type="radio" name="import_mode" value="results" {% if import_mode == 'results' %}checked{% endif %}>
-              <span>🎯 Results (výsledky)</span>
+              <span> Results (výsledky)</span>
             </label>
           </div>
           <div class="muted">
@@ -12436,7 +12436,7 @@ function submitBulkDelete() {
           
           
           <div class="examples">
-            <h3>💡 Podporované formáty:</h3>
+            <h3> Podporované formáty:</h3>
             <div class="example-item">27. 2. 2026DuklaSlavia18:00</div>
             <div class="example-item">27. 2. 2026 Sparta - Slavia 18:00</div>
             <div class="example-item">27. 2. 20:00 Sparta vs Slavia</div>
@@ -12445,7 +12445,7 @@ function submitBulkDelete() {
           </div>
           <div class="paste-zone" id="pasteZone">
             <div id="pasteInstruction" class="paste-instruction">
-              📸 <strong>Napiš nebo vlož screenshot</strong>
+               <strong>Napiš nebo vlož screenshot</strong>
               <div class="muted" style="margin-top: 8px;">
                 Win+Shift+S → Ctrl+V zde → Auto OCR ✨
               </div>
@@ -12468,15 +12468,15 @@ function submitBulkDelete() {
               </button>
             </div>
           </div>
-          <div class="muted">💡 Tip: Headers jako "24. kolo" se automaticky přeskočí</div>
+          <div class="muted"> Tip: Headers jako "24. kolo" se automaticky přeskočí</div>
         </div>
         
-        <button type="submit" class="btn btn-primary">🔍 Parsovat & Preview</button>
+        <button type="submit" class="btn btn-primary"> Parsovat & Preview</button>
       </form>
     </div>
     {% else %}
     <div class="card">
-      <h1>🔍 Preview - zkontroluj a uprav</h1>
+      <h1> Preview - zkontroluj a uprav</h1>
       <div class="subtitle">Naparsováno {{ parsed_matches|length }} zápasů</div>
       
       <form method="post" id="importForm">
@@ -12714,7 +12714,7 @@ function submitBulkDelete() {
         <div>
           <div style="font-weight:900;">
             {% if rr.is_active %}★ {% endif %}
-            {% if rr.is_archived %}📦 {% endif %}
+            {% if rr.is_archived %} {% endif %}
             {{ rr.name }}
           </div>
           <div class="muted">Sport: {{ rr.sport.name }}</div>
@@ -12728,11 +12728,11 @@ function submitBulkDelete() {
           </a>
           <a class="btn" href="{{ url_for('admin_round_toggle_archive', round_id=rr.id) }}"
              style="{% if rr.is_archived %}background:rgba(51,209,122,.15); color:#33d17a; border:1px solid rgba(51,209,122,.3);{% else %}background:rgba(139,92,246,.15); color:#8b5cf6; border:1px solid rgba(139,92,246,.3);{% endif %}">
-            {% if rr.is_archived %}📤 Odarchivovat{% else %}📦 Archivovat{% endif %}
+            {% if rr.is_archived %} Odarchivovat{% else %} Archivovat{% endif %}
           </a>
           <a class="btn" href="{{ url_for('admin_round_delete_confirm', round_id=rr.id) }}"
              style="background:rgba(255,77,109,0.2); color:#ff4d6d; border:1px solid rgba(255,77,109,0.4);">
-            🗑️ Smazat
+            ️ Smazat
           </a>
         </div>
       </div>
@@ -12967,7 +12967,7 @@ function submitBulkDelete() {
       <div style="display:flex; gap:12px;">
         <button type="submit" class="btn"
                 style="flex:1; padding:14px; font-size:16px; font-weight:900; background:rgba(255,77,109,0.3); color:#ff4d6d; border:2px solid #ff4d6d;">
-          🗑️ ANO, SMAZAT TRVALE
+          ️ ANO, SMAZAT TRVALE
         </button>
         <a href="{{ url_for('admin_rounds') }}" class="btn btn-primary" style="flex:1; padding:14px; font-size:16px; font-weight:900; text-align:center;">
           ✖️ Zrušit
@@ -13200,7 +13200,7 @@ function validateDelete() {
 
         return render_page(r"""
 <div class="card">
-  <h2 style="margin:0 0 8px 0;">🔁 Aliasy týmů</h2>
+  <h2 style="margin:0 0 8px 0;"> Aliasy týmů</h2>
   <div class="muted">Alias slouží pro importéry (Smart Import, API import), aby se krátké názvy mapovaly na plné názvy ve tvé DB.</div>
 </div>
 
@@ -13219,7 +13219,7 @@ function validateDelete() {
     </div>
     {% if r %}
       <a class="btn" href="{{ url_for('teams') }}">➡️ Týmy</a>
-      <a class="btn" href="{{ url_for('admin_smart_import') }}">🤖 Smart Import</a>
+      <a class="btn" href="{{ url_for('admin_smart_import') }}"> Smart Import</a>
     {% endif %}
   </form>
 </div>
@@ -13244,7 +13244,7 @@ function validateDelete() {
 </div>
 
 <div class="card">
-  <h3 style="margin:0 0 10px 0;">📋 Seznam aliasů</h3>
+  <h3 style="margin:0 0 10px 0;"> Seznam aliasů</h3>
   {% if not aliases %}
     <div class="muted">Zatím žádné aliasy.</div>
   {% else %}
@@ -13620,7 +13620,7 @@ function validateDelete() {
                      class="btn" style="font-size:11px; padding:3px 8px;">✏️ Edit</a>
                   <a href="{{ url_for('admin_extra_delete_question', question_id=q.id) }}"
                      class="btn" style="font-size:11px; padding:3px 8px; background:rgba(255,77,109,.2); color:#ff4d6d; border:1px solid rgba(255,77,109,.4);"
-                     onclick="return confirm('Smazat otázku „{{ q.question }}" a VŠECHNY odpovědi na ni?')">🗑️</a>
+                     onclick="return confirm('Smazat otázku „{{ q.question }}" a VŠECHNY odpovědi na ni?')">️</a>
                 </div>
               </th>
             {% endfor %}
@@ -13718,7 +13718,7 @@ function validateDelete() {
       <small class="muted">Po tomto datu budou odpovědi viditelné v žebříčku.</small>
     </div>
     <div class="row" style="gap:10px;">
-      <button class="btn btn-primary" type="submit">💾 Uložit</button>
+      <button class="btn btn-primary" type="submit"> Uložit</button>
       <a class="btn" href="{{ url_for('admin_extra_manage') }}">Zrušit</a>
     </div>
   </form>
@@ -13985,19 +13985,19 @@ function validateDelete() {
 </style>
 
 <div class="card">
-  <h1 style="margin: 0 0 8px 0;">👨‍💼 Admin Dashboard</h1>
+  <h1 style="margin: 0 0 8px 0;">‍ Admin Dashboard</h1>
   <div class="muted">Přehled a rychlé akce</div>
 </div>
 
 <div class="admin-dashboard">
   <div class="stat-card">
-    <h3 style="margin: 0 0 8px 0; font-size: 14px; color: var(--muted);">👥 UŽIVATELÉ</h3>
+    <h3 style="margin: 0 0 8px 0; font-size: 14px; color: var(--muted);"> UŽIVATELÉ</h3>
     <div class="stat-value" style="color: var(--accent);">{{ total_users }}</div>
     <div class="muted" style="font-size: 13px;">Celkem registrovaných</div>
   </div>
   
   <div class="stat-card">
-    <h3 style="margin: 0 0 8px 0; font-size: 14px; color: var(--muted);">🏆 SOUTĚŽE</h3>
+    <h3 style="margin: 0 0 8px 0; font-size: 14px; color: var(--muted);"> SOUTĚŽE</h3>
     <div class="stat-value" style="color: var(--ok);">{{ total_rounds }}</div>
     <div class="muted" style="font-size: 13px;">{{ active_rounds }} aktivních</div>
   </div>
@@ -14009,7 +14009,7 @@ function validateDelete() {
   </div>
   
   <div class="stat-card">
-    <h3 style="margin: 0 0 8px 0; font-size: 14px; color: var(--muted);">🎯 TIPY</h3>
+    <h3 style="margin: 0 0 8px 0; font-size: 14px; color: var(--muted);"> TIPY</h3>
     <div class="stat-value" style="color: var(--danger);">{{ total_tips }}</div>
     <div class="muted" style="font-size: 13px;">Celkem odeslaných</div>
   </div>
@@ -14059,7 +14059,7 @@ function validateDelete() {
 {% endif %}
 
 <div class="card">
-  <h3 style="margin: 0 0 16px 0;">👥 Noví uživatelé</h3>
+  <h3 style="margin: 0 0 16px 0;"> Noví uživatelé</h3>
   {% for user in recent_users %}
     <div style="padding: 8px 0; border-bottom: 1px solid var(--line);">
       <strong>{{ user.display_name }}</strong>
@@ -14070,7 +14070,7 @@ function validateDelete() {
 </div>
 
 <div class="card">
-  <h3 style="margin: 0 0 16px 0;">🔧 Admin nástroje</h3>
+  <h3 style="margin: 0 0 16px 0;"> Admin nástroje</h3>
   <div class="admin-cards">
     
     <a href="{{ url_for('admin_bulk_edit') }}" class="admin-card">
@@ -14083,7 +14083,7 @@ function validateDelete() {
     
     <a href="{{ url_for('admin_import') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">📥</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">Import</div>
       </div>
       <div class="admin-card-desc">Importovat data</div>
@@ -14091,7 +14091,7 @@ function validateDelete() {
     
     <a href="{{ url_for('admin_export_hub') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">📤</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">Export</div>
       </div>
       <div class="admin-card-desc">Exportovat data</div>
@@ -14107,7 +14107,7 @@ function validateDelete() {
     
     <a href="{{ url_for('admin_rounds') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">🎮</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">Soutěže</div>
       </div>
       <div class="admin-card-desc">Správa soutěží</div>
@@ -14115,7 +14115,7 @@ function validateDelete() {
     
     <a href="{{ url_for('admin_users') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">👥</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">Uživatelé</div>
       </div>
       <div class="admin-card-desc">Správa userů</div>
@@ -14123,7 +14123,7 @@ function validateDelete() {
     
     <a href="{{ url_for('admin_api_sources') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">🔌</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">API Zdroje</div>
       </div>
       <div class="admin-card-desc">Fotbal & hokej API</div>
@@ -14131,7 +14131,7 @@ function validateDelete() {
     
     <a href="{{ url_for('admin_smart_import') }}" class="admin-card">
       <div class="admin-card-header">
-        <div class="admin-card-icon">🤖</div>
+        <div class="admin-card-icon"></div>
         <div class="admin-card-title">Smart Import</div>
       </div>
       <div class="admin-card-desc">AI parsování zápasů</div>
@@ -14222,8 +14222,8 @@ function validateDelete() {
   
   <div class="card">
     <div class="row" style="justify-content: space-between; align-items: center; margin-bottom: 16px;">
-      <h3 style="margin: 0;">📋 Zápasy ({{ total }})</h3>
-      <button type="submit" class="btn btn-primary">💾 Uložit všechny změny</button>
+      <h3 style="margin: 0;"> Zápasy ({{ total }})</h3>
+      <button type="submit" class="btn btn-primary"> Uložit všechny změny</button>
     </div>
     
     <div class="bulk-table-wrapper" style="overflow-x: auto;">
@@ -14262,7 +14262,7 @@ function validateDelete() {
     </div>
     
     <div style="margin-top: 16px; text-align: right;">
-      <button type="submit" class="btn btn-primary">💾 Uložit všechny změny</button>
+      <button type="submit" class="btn btn-primary"> Uložit všechny změny</button>
     </div>
   </div>
 </form>
@@ -14444,17 +14444,17 @@ function validateDelete() {
 <div class="card">
   <div class="row" style="justify-content:space-between; align-items:flex-start;">
     <div>
-      <h2>📥 Hromadný import z CSV</h2>
+      <h2> Hromadný import z CSV</h2>
       <div class="muted">Import týmů a zápasů z CSV souborů s preview</div>
     </div>
     <a href="{{ url_for('admin_bulk_import_template') }}" class="btn" style="background:#6ea8fe; color:white;">
-      📥 Stáhnout šablonu CSV
+       Stáhnout šablonu CSV
     </a>
   </div>
 </div>
 
 <div class="card">
-  <h3>📋 Import týmů</h3>
+  <h3> Import týmů</h3>
   <form method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <input type="hidden" name="import_type" value="teams">
@@ -14477,7 +14477,7 @@ function validateDelete() {
       </div>
     </div>
     
-    <button type="submit" class="btn btn-primary">👁️ Zobrazit preview</button>
+    <button type="submit" class="btn btn-primary">️ Zobrazit preview</button>
   </form>
 </div>
 
@@ -14507,12 +14507,12 @@ function validateDelete() {
       </div>
     </div>
     
-    <button type="submit" class="btn btn-primary">👁️ Zobrazit preview</button>
+    <button type="submit" class="btn btn-primary">️ Zobrazit preview</button>
   </form>
 </div>
 
 <div class="card">
-  <h3>👤 Import tipů</h3>
+  <h3> Import tipů</h3>
   <form method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <input type="hidden" name="import_type" value="tips">
@@ -14537,12 +14537,12 @@ function validateDelete() {
       </div>
     </div>
     
-    <button type="submit" class="btn btn-primary">👁️ Zobrazit preview</button>
+    <button type="submit" class="btn btn-primary">️ Zobrazit preview</button>
   </form>
 </div>
 
 <div class="card" style="background: rgba(255,255,255,.02);">
-  <h3>💡 Jak na to</h3>
+  <h3> Jak na to</h3>
   <ol style="margin: 0; padding-left: 20px;">
     <li>Vyber CSV soubor → zobrazí se <strong>preview</strong></li>
     <li>Zkontroluj data v tabulce</li>
@@ -14973,7 +14973,7 @@ function validateDelete() {
             
             return render_page(r"""
 <div class="card">
-  <h2>👁️ Preview importu</h2>
+  <h2>️ Preview importu</h2>
   <div class="muted">Zkontroluj data před potvrzením</div>
 </div>
 
@@ -15015,7 +15015,7 @@ function validateDelete() {
 {% endif %}
 
 <div class="card">
-  <h3>📊 Data ({{ preview_data|length }})</h3>
+  <h3> Data ({{ preview_data|length }})</h3>
   
   <div style="margin-bottom: 12px; display: flex; gap: 12px; flex-wrap: wrap;">
     <button type="button" onclick="selectAll()" class="btn" style="font-size: 13px; padding: 6px 12px;">
@@ -15025,10 +15025,10 @@ function validateDelete() {
       ❌ Zrušit vše
     </button>
     <button type="button" onclick="selectNew()" class="btn" style="font-size: 13px; padding: 6px 12px;">
-      🟢 Jen nové
+       Jen nové
     </button>
     <button type="button" onclick="selectOverwrite()" class="btn" style="font-size: 13px; padding: 6px 12px;">
-      🔵 Přepsat existující
+       Přepsat existující
     </button>
     <div style="flex: 1; text-align: right; line-height: 32px;">
       <span class="muted" style="font-size: 13px;">
@@ -15509,18 +15509,18 @@ updateCount();
         
         return render_page(r"""
 <div class="card">
-  <h2 style="margin: 0 0 8px 0;">🔄 Undo - Vrátit změny</h2>
+  <h2 style="margin: 0 0 8px 0;"> Undo - Vrátit změny</h2>
   <div class="muted">Možnost vrátit poslední akce zpět</div>
   <hr class="sep">
   
   <div class="row" style="gap: 12px; margin-bottom: 16px;">
     <div class="tag pill-ok">✅ {{ available_undos }} dostupných</div>
-    <div class="tag">📊 {{ total_undos }} celkem</div>
+    <div class="tag"> {{ total_undos }} celkem</div>
   </div>
   
   {% if not recent_undos %}
     <div class="card" style="background: rgba(255,255,255,.03); text-align: center; padding: 32px;">
-      <div style="font-size: 48px; margin-bottom: 16px;">📝</div>
+      <div style="font-size: 48px; margin-bottom: 16px;"></div>
       <div class="muted">Žádné akce k vrácení.</div>
       <div class="muted" style="font-size: 13px; margin-top: 8px;">
         Změny se zaznamenávají automaticky při Bulk Edit.
@@ -15561,7 +15561,7 @@ updateCount();
 </div>
 
 <div class="card" style="background: rgba(110,168,254,.08); border-color: rgba(110,168,254,.3);">
-  <h3 style="margin: 0 0 12px 0;">💡 Jak to funguje?</h3>
+  <h3 style="margin: 0 0 12px 0;"> Jak to funguje?</h3>
   <ul style="margin: 0; padding-left: 20px;">
     <li>Při každé důležité změně (Bulk Edit) se vytvoří undo point</li>
     <li>Můžeš kdykoli vrátit změnu pomocí tlačítka "Vrátit"</li>
@@ -15605,7 +15605,7 @@ updateCount();
         
         return render_page(r"""
 <div class="card">
-  <h2 style="margin:0 0 8px 0;">💾 Záloha databáze</h2>
+  <h2 style="margin:0 0 8px 0;"> Záloha databáze</h2>
   <div class="muted">Pravidelně zálohuj data tipovačky</div>
   <hr class="sep">
   
@@ -15627,15 +15627,15 @@ updateCount();
   
   <div class="row" style="gap:10px; margin-bottom:24px;">
     <a href="{{ url_for('admin_backup_download') }}" class="btn btn-primary">
-      📥 Stáhnout backup
+       Stáhnout backup
     </a>
     <a href="{{ url_for('admin_backup_email') }}" class="btn" style="background:#667eea; color:white;">
-      📧 Poslat na email
+       Poslat na email
     </a>
   </div>
   
   <div style="background:rgba(255,193,7,0.1); padding:12px; border-left:4px solid #ffc107; font-size:13px; margin-bottom:24px;">
-    <strong>📧 Email backup:</strong> Odešle se na <strong>{{ current_user.email }}</strong>
+    <strong> Email backup:</strong> Odešle se na <strong>{{ current_user.email }}</strong>
   </div>
   
   <hr class="sep">
@@ -15667,7 +15667,7 @@ updateCount();
   
   <details style="margin-top:16px;">
     <summary style="cursor:pointer; padding:12px; background:rgba(0,0,0,0.05); border-radius:4px; font-weight:600;">
-      📖 Návod: Nastavení automatického backupu (pro budoucnost)
+       Návod: Nastavení automatického backupu (pro budoucnost)
     </summary>
     <div style="padding:16px; background:rgba(0,0,0,0.02); border-radius:4px; margin-top:8px; font-size:13px;">
       <p><strong>Soubor: backup_daily.py</strong></p>
@@ -15800,7 +15800,7 @@ with app.app_context():
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                     <div style="background: #0b1020; color: white; padding: 20px; text-align: center;">
-                        <h1>💾 Záloha databáze</h1>
+                        <h1> Záloha databáze</h1>
                     </div>
                     <div style="background: #f4f4f4; padding: 30px;">
                         <h2>Záloha tipovačky</h2>
@@ -15809,7 +15809,7 @@ with app.app_context():
                         <p><strong>Soubor:</strong> tipovacka_backup_{timestamp_file}.zip</p>
                         
                         <div style="background: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; margin: 20px 0;">
-                            <strong>💡 Doporučení:</strong><br>
+                            <strong> Doporučení:</strong><br>
                             • Ulož si backup na bezpečné místo<br>
                             • Nezveřejňuj ho (obsahuje všechna data)<br>
                             • Gmail: 15 GB free = ~5000 backupů
@@ -15875,11 +15875,11 @@ Soubor: tipovacka_backup_{timestamp_file}.zip
         ✨ Smart Import (s kontrolou duplicit)
       </a>
       <a class="btn" href="{{ url_for('admin_import_leaderboard') }}">
-        📥 Klasický Import (bez kontroly)
+         Klasický Import (bez kontroly)
       </a>
     </div>
     <div class="muted" style="margin-top: 8px; font-size: 12px;">
-      💡 <strong>Smart Import</strong> ti ukáže preview a označí možné duplicity před importem!
+       <strong>Smart Import</strong> ti ukáže preview a označí možné duplicity před importem!
     </div>
   </div>
 </div>
@@ -16109,13 +16109,13 @@ Soubor: tipovacka_backup_{timestamp_file}.zip
       <div class="muted">Import s kontrolou duplicit a možností výběru</div>
     </div>
     <a href="{{ url_for('admin_import_leaderboard_smart_template') }}" class="btn" style="background:#667eea; color:white;">
-      📥 Stáhnout šablonu Excel
+       Stáhnout šablonu Excel
     </a>
   </div>
   <hr class="sep">
   
   <div class="card" style="background: rgba(110,168,254,.08); border-color: rgba(110,168,254,.3); margin-bottom: 16px;">
-    <h3 style="margin: 0 0 12px 0;">💡 Jak to funguje?</h3>
+    <h3 style="margin: 0 0 12px 0;"> Jak to funguje?</h3>
     <ul style="margin: 0; padding-left: 20px;">
       <li><strong>Preview před importem</strong> - Vidíš CO se chystá importovat</li>
       <li><strong>Detekce existujících</strong> - Modře označí zápasy které již existují (mohou být použity)</li>
@@ -16167,7 +16167,7 @@ Soubor: tipovacka_backup_{timestamp_file}.zip
     </div>
     
     <button class="btn btn-primary" type="submit" style="padding:14px; font-size:16px; font-weight:900;">
-      📥 Načíst preview
+       Načíst preview
     </button>
     <a class="btn" href="{{ url_for('admin_import') }}">Zpět</a>
   </form>
@@ -16254,14 +16254,14 @@ toggleImportTarget();
   <div class="row" style="justify-content: space-between; margin-bottom: 16px;">
     <div>
       <div class="tag pill-ok" style="font-size: 14px;">✅ {{ preview.new_count }} nových</div>
-      <div class="tag pill-info" style="font-size: 14px; background: rgba(99,179,237,.15); color: #63b3ed;">🔵 {{ preview.overwrite_count }} přepsat</div>
+      <div class="tag pill-info" style="font-size: 14px; background: rgba(99,179,237,.15); color: #63b3ed;"> {{ preview.overwrite_count }} přepsat</div>
     </div>
     
     <div class="row" style="gap: 8px;">
       <button type="button" onclick="selectAll()" class="btn btn-sm">☑️ Vybrat vše</button>
       <button type="button" onclick="deselectAll()" class="btn btn-sm">☐ Zrušit výběr</button>
-      <button type="button" onclick="selectNew()" class="btn btn-sm">🟢 Jen nové</button>
-      <button type="button" onclick="selectOverwrite()" class="btn btn-sm btn-primary">🔵 Přepsat existující</button>
+      <button type="button" onclick="selectNew()" class="btn btn-sm"> Jen nové</button>
+      <button type="button" onclick="selectOverwrite()" class="btn btn-sm btn-primary"> Přepsat existující</button>
     </div>
   </div>
 </div>
@@ -16269,7 +16269,7 @@ toggleImportTarget();
 <form method="post" action="{{ url_for('admin_import_leaderboard_smart_confirm') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
   <div class="card">
-    <h3 style="margin: 0 0 16px 0;">📋 Zápasy k importu ({{ preview.total_matches }})</h3>
+    <h3 style="margin: 0 0 16px 0;"> Zápasy k importu ({{ preview.total_matches }})</h3>
     
     {% for match in preview.matches %}
       <div class="match-preview {{ match.status }}" data-status="{{ match.status }}">
@@ -16290,7 +16290,7 @@ toggleImportTarget();
             
             <div>
               {% if match.status == 'overwrite' %}
-                <span class="tag pill-info" style="background: rgba(99,179,237,.15); color: #63b3ed;">🔵 PŘEPSAT</span>
+                <span class="tag pill-info" style="background: rgba(99,179,237,.15); color: #63b3ed;"> PŘEPSAT</span>
               {% else %}
                 <span class="tag pill-ok">✅ NOVÝ</span>
               {% endif %}
@@ -16982,7 +16982,7 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
 </style>
 
 <div class="card">
-  <h2 style="margin:0 0 4px 0;">📋 Preview – Týmy</h2>
+  <h2 style="margin:0 0 4px 0;"> Preview – Týmy</h2>
   <div class="muted">Soutěž: <b>{{ r.name }}</b></div>
 
   <div class="row" style="gap:16px; margin: 16px 0; flex-wrap:wrap;">
@@ -17068,17 +17068,17 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
 <div class="card">
   <div class="row" style="justify-content:space-between; margin-bottom:20px;">
     <div>
-      <h2 style="margin:0 0 4px 0;">📥 Import týmů (Excel)</h2>
+      <h2 style="margin:0 0 4px 0;"> Import týmů (Excel)</h2>
       <div class="muted">Soutěž: <b>{{ r.name }}</b></div>
     </div>
     <a href="{{ url_for('admin_import_teams_template') }}" class="btn"
        style="background:rgba(51,209,122,.15); color:#33d17a; border:1px solid rgba(51,209,122,.3);">
-      📄 Stáhnout šablonu
+       Stáhnout šablonu
     </a>
   </div>
 
   <div class="muted" style="margin-bottom:20px; padding:12px 16px; background:rgba(110,168,254,0.08); border:1px solid rgba(110,168,254,0.2); border-radius:8px;">
-    💡 <strong>Formát Excel (sloupce):</strong><br>
+     <strong>Formát Excel (sloupce):</strong><br>
     <code>name</code> – povinný, název týmu<br>
     <code>group</code> – volitelný, skupina (A, B, C...)<br>
     <code>country_code</code> – volitelný, kód země (CZ, SK, DE...)
@@ -17087,7 +17087,7 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
   <form method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <div class="upload-zone" onclick="document.getElementById('xl').click()">
-      <div style="font-size:48px; margin-bottom:12px;">📊</div>
+      <div style="font-size:48px; margin-bottom:12px;"></div>
       <div style="font-weight:700; margin-bottom:8px;">Klikni nebo přetáhni Excel soubor</div>
       <div class="muted">.xlsx • max 10 MB</div>
       <input type="file" id="xl" name="excel_file" accept=".xlsx" style="display:none"
@@ -17106,7 +17106,7 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
     </div>
 
     <div class="row" style="gap:12px;">
-      <button type="submit" class="btn btn-primary">📋 Zobrazit preview</button>
+      <button type="submit" class="btn btn-primary"> Zobrazit preview</button>
       <a href="{{ url_for('admin_import') }}" class="btn">← Zpět</a>
     </div>
   </form>
@@ -17296,7 +17296,7 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
       <div class="muted">Soutěž: <b>{{ r.name }}</b></div>
     </div>
     <a href="{{ url_for('admin_import_matches_template') }}" class="btn" style="background:#6ea8fe; color:white;">
-      📥 Stáhnout šablonu Excel
+       Stáhnout šablonu Excel
     </a>
   </div>
   <hr class="sep">
@@ -17608,7 +17608,7 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
 </style>
 
 <div class="card">
-  <h2 style="margin:0 0 4px 0;">📋 Preview – Extra otázky</h2>
+  <h2 style="margin:0 0 4px 0;"> Preview – Extra otázky</h2>
   <div class="muted">Soutěž: <b>{{ r.name }}</b></div>
 
   {% if unk_users %}
@@ -17710,17 +17710,17 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
 <div class="card">
   <div class="row" style="justify-content:space-between; margin-bottom:20px;">
     <div>
-      <h2 style="margin:0 0 4px 0;">📥 Import extra otázek (Excel)</h2>
+      <h2 style="margin:0 0 4px 0;"> Import extra otázek (Excel)</h2>
       <div class="muted">Soutěž: <b>{{ r.name }}</b></div>
     </div>
     <a href="{{ url_for('admin_import_extras_template') }}" class="btn"
        style="background:rgba(51,209,122,.15); color:#33d17a; border:1px solid rgba(51,209,122,.3);">
-      📄 Stáhnout šablonu
+       Stáhnout šablonu
     </a>
   </div>
 
   <div style="margin-bottom:20px; padding:14px 16px; background:rgba(110,168,254,0.08); border:1px solid rgba(110,168,254,0.2); border-radius:8px; font-size:13px;">
-    💡 <strong>Formát Excel:</strong><br><br>
+     <strong>Formát Excel:</strong><br><br>
     <table style="border-collapse:collapse; font-size:12px;">
       <thead>
         <tr style="background:rgba(255,255,255,.07);">
@@ -17746,7 +17746,7 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
   <form method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <div class="upload-zone" onclick="document.getElementById('xl').click()">
-      <div style="font-size:48px; margin-bottom:12px;">📊</div>
+      <div style="font-size:48px; margin-bottom:12px;"></div>
       <div style="font-weight:700; margin-bottom:8px;">Klikni nebo přetáhni Excel soubor</div>
       <div class="muted">.xlsx • max 10 MB</div>
       <input type="file" id="xl" name="excel_file" accept=".xlsx" style="display:none"
@@ -17765,7 +17765,7 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
     </div>
 
     <div class="row" style="gap:12px;">
-      <button type="submit" class="btn btn-primary">📋 Zobrazit preview</button>
+      <button type="submit" class="btn btn-primary"> Zobrazit preview</button>
       <a href="{{ url_for('admin_import') }}" class="btn">← Zpět</a>
     </div>
   </form>
@@ -18299,9 +18299,9 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
         return render_page(r"""
 <div class="card">
   <div class="row" style="justify-content:space-between; align-items:flex-start;">
-    <h2 style="margin:0 0 8px 0;">📊 Import žebříčku z jiné tipovačky</h2>
+    <h2 style="margin:0 0 8px 0;"> Import žebříčku z jiné tipovačky</h2>
     <a href="{{ url_for('admin_import_leaderboard_template') }}" class="btn" style="background:#6ea8fe; color:white;">
-      📥 Stáhnout šablonu Excel
+       Stáhnout šablonu Excel
     </a>
   </div>
 
@@ -18310,7 +18310,7 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
   </div>
 
   <div class="card" style="background:rgba(110,168,254,0.08); border:1px solid rgba(110,168,254,0.2); margin-bottom:16px;">
-    <h3 style="margin:0 0 8px 0;">📋 Formát souboru</h3>
+    <h3 style="margin:0 0 8px 0;"> Formát souboru</h3>
     <div class="muted" style="font-size:13px; line-height:1.6;">
       <strong>První řádek (hlavička):</strong><br>
       • Sloupec A: "Tipér" nebo "Jméno" (ignoruje se)<br>
@@ -18320,15 +18320,15 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
       <strong>Druhý řádek NEBO poslední řádek (VOLITELNĚ - výsledky):</strong><br>
       • Sloupec A: prázdné NEBO "Výsledek" NEBO "Result"<br>
       • Sloupec B+: Výsledky zápasů <strong>"2:1"</strong><br>
-      &nbsp;&nbsp;💡 Výsledky můžou být na <strong>druhém řádku</strong> (hned po hlavičce)<br>
-      &nbsp;&nbsp;💡 NEBO na <strong>posledním řádku</strong> (dole pod tipéry) - NOVĚ!<br>
-      &nbsp;&nbsp;💡 Pokud první sloupec je prázdný nebo obsahuje "Výsledek", importují se výsledky<br>
-      &nbsp;&nbsp;💡 Pokud první sloupec obsahuje jméno, považuje se za tipéra<br><br>
+      &nbsp;&nbsp; Výsledky můžou být na <strong>druhém řádku</strong> (hned po hlavičce)<br>
+      &nbsp;&nbsp; NEBO na <strong>posledním řádku</strong> (dole pod tipéry) - NOVĚ!<br>
+      &nbsp;&nbsp; Pokud první sloupec je prázdný nebo obsahuje "Výsledek", importují se výsledky<br>
+      &nbsp;&nbsp; Pokud první sloupec obsahuje jméno, považuje se za tipéra<br><br>
 
       <strong>Další řádky (tipéři):</strong><br>
       • Sloupec A: Jméno tipéra<br>
       • Sloupec B+: Tipy ve formátu <strong>"2:1"</strong> nebo <strong>"2-1"</strong><br>
-      &nbsp;&nbsp;💡 Funguje i časový formát "2:01" (Excel často automaticky převádí)<br><br>
+      &nbsp;&nbsp; Funguje i časový formát "2:01" (Excel často automaticky převádí)<br><br>
 
       <strong>Co se stane:</strong><br>
       ✅ Vytvoří se uživatelé (heslo: "tipovacka123")<br>
@@ -18374,7 +18374,7 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
       </tr>
     </table>
     <div class="muted" style="font-size:11px; margin-top:6px;">
-      💡 Řádek "Výsledek" je volitelný. Pokud první sloupec je prázdný nebo obsahuje "Výsledek"/"Result"/"Skóre", importují se výsledky zápasů.
+       Řádek "Výsledek" je volitelný. Pokud první sloupec je prázdný nebo obsahuje "Výsledek"/"Result"/"Skóre", importují se výsledky zápasů.
     </div>
   </div>
 
@@ -18413,7 +18413,7 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
       </tr>
     </table>
     <div class="muted" style="font-size:11px; margin-top:6px;">
-      💡 <strong>NOVĚ:</strong> Výsledky můžou být i v posledním řádku! Import automaticky detekuje řádek "Výsledek" ať je nahoře nebo dole.
+       <strong>NOVĚ:</strong> Výsledky můžou být i v posledním řádku! Import automaticky detekuje řádek "Výsledek" ať je nahoře nebo dole.
     </div>
   </div>
 
@@ -18465,7 +18465,7 @@ document.querySelectorAll('.match-checkbox').forEach(cb => {
     </div>
 
     <button class="btn btn-primary" type="submit" style="padding:14px; font-size:16px; font-weight:900;">
-      📥 Importovat žebříček
+       Importovat žebříček
     </button>
     <a class="btn" href="{{ url_for('admin_import') }}">Zpět</a>
   </form>
@@ -18527,7 +18527,7 @@ toggleImportTarget();
     <a href="{{ url_for('admin_import_leaderboard_download') }}"
        class="btn btn-primary"
        style="padding:14px 24px; font-size:16px; font-weight:900; background:#FFC74F; color:#000;">
-      📥 Stáhnout Excel report
+       Stáhnout Excel report
     </a>
     <a href="{{ url_for('leaderboard') }}" class="btn" style="padding:14px 24px; font-size:16px;">
       ➡️ Přejít do žebříčku
@@ -18535,7 +18535,7 @@ toggleImportTarget();
   </div>
 
   <div class="muted" style="font-size:12px;">
-    💡 Po opravě tipů v Excelu můžeš znovu importovat žebříček s opravenými daty.
+     Po opravě tipů v Excelu můžeš znovu importovat žebříček s opravenými daty.
   </div>
 </div>
 """)
@@ -18717,7 +18717,7 @@ toggleImportTarget();
         
         success = send_push_notification(
             current_user.id,
-            "🔔 Test notifikace",
+            " Test notifikace",
             "Funguje to! Tohle je testovací notifikace.",
             {"url": "/"}
         )
@@ -18738,7 +18738,7 @@ toggleImportTarget();
 <div class="card">
 
   <div class="card" style="margin-bottom:16px;">
-    <h3 style="margin-top:0;">🔔 Push notifikace</h3>
+    <h3 style="margin-top:0;"> Push notifikace</h3>
     <div id="pushStatus" class="muted">Načítám stav…</div>
     <div class="row" style="gap:8px; margin-top:12px; flex-wrap:wrap;">
       <button id="btnEnablePush" class="btn" type="button" style="background: rgba(110,168,254,.15); border: 1px solid rgba(110,168,254,.35);">Povolit push</button>
@@ -18749,7 +18749,7 @@ toggleImportTarget();
     </div>
   </div>
 
-  <h2 style="margin:0 0 8px 0;">Nastavení notifikací 🔔</h2>
+  <h2 style="margin:0 0 8px 0;">Nastavení notifikací </h2>
   <div class="muted">Vyber si, jaké notifikace chceš dostávat</div>
   
   <hr class="sep">
@@ -18776,7 +18776,7 @@ toggleImportTarget();
       <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 12px; background: rgba(110,168,254,0.08); border-radius: 8px;">
         <input type="checkbox" name="notify_new_round" {% if prefs.notify_new_round %}checked{% endif %} style="width: 20px; height: 20px;">
         <div>
-          <div style="font-weight: 600;">🆕 Nová soutěž</div>
+          <div style="font-weight: 600;"> Nová soutěž</div>
           <div class="muted" style="font-size: 12px;">Budeš první, kdo ví o nové soutěži</div>
         </div>
       </label>
@@ -18784,7 +18784,7 @@ toggleImportTarget();
       <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 12px; background: rgba(110,168,254,0.08); border-radius: 8px;">
         <input type="checkbox" name="notify_achievement" {% if prefs.notify_achievement %}checked{% endif %} style="width: 20px; height: 20px;">
         <div>
-          <div style="font-weight: 600;">🏅 Achievementy</div>
+          <div style="font-weight: 600;"> Achievementy</div>
           <div class="muted" style="font-size: 12px;">Oznámení když získáš nový achievement</div>
         </div>
       </label>
@@ -18792,7 +18792,7 @@ toggleImportTarget();
       <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 12px; background: rgba(110,168,254,0.08); border-radius: 8px;">
         <input type="checkbox" name="notify_leaderboard" {% if prefs.notify_leaderboard %}checked{% endif %} style="width: 20px; height: 20px;">
         <div>
-          <div style="font-weight: 600;">📊 Změna v žebříčku</div>
+          <div style="font-weight: 600;"> Změna v žebříčku</div>
           <div class="muted" style="font-size: 12px;">Upozornění když se změní tvoje pozice (může být častější)</div>
         </div>
       </label>
@@ -18802,7 +18802,7 @@ toggleImportTarget();
     <hr class="sep">
     
     <div class="row" style="gap: 8px;">
-      <button type="submit" class="btn btn-primary">💾 Uložit nastavení</button>
+      <button type="submit" class="btn btn-primary"> Uložit nastavení</button>
       <a href="/" class="btn">Zpět</a>
     </div>
   </form>
@@ -19073,7 +19073,7 @@ self.addEventListener('push', event => {
   console.log('[Service Worker] Push received:', event);
   
   let data = {
-    title: '🏆 Tipovačka',
+    title: ' Tipovačka',
     body: 'Nová notifikace',
     icon: '/static/icon-192.png',
     badge: '/static/badge-96.png',
@@ -19190,7 +19190,7 @@ self.addEventListener('notificationclick', event => {
 <div class="card">
   <div class="row" style="justify-content: space-between; align-items: center;">
     <div>
-      <h2 style="margin: 0 0 8px 0;">🔌 API Zdroje</h2>
+      <h2 style="margin: 0 0 8px 0;"> API Zdroje</h2>
       <div class="muted">Automatický import zápasů a výsledků</div>
     </div>
     <a href="{{ url_for('admin_api_source_new') }}" class="btn btn-primary">+ Nový zdroj</a>
@@ -19200,7 +19200,7 @@ self.addEventListener('notificationclick', event => {
 {% if sources|length == 0 %}
 <div class="card">
   <div style="text-align: center; padding: 40px;">
-    <div style="font-size: 48px; margin-bottom: 12px;">🔌</div>
+    <div style="font-size: 48px; margin-bottom: 12px;"></div>
     <h3 style="margin: 0 0 8px 0;">Žádné API zdroje</h3>
     <div class="muted">Přidej první API zdroj pro automatický import</div>
     <a href="{{ url_for('admin_api_source_new') }}" class="btn btn-primary" style="margin-top: 16px;">+ Přidat zdroj</a>
@@ -19227,9 +19227,9 @@ self.addEventListener('notificationclick', event => {
       </div>
       <div class="row" style="gap: 8px;">
         <a href="{{ url_for('admin_api_import_preview', source_id=source.id, import_type='matches') }}" 
-           class="btn btn-sm">📥 Import zápasů</a>
+           class="btn btn-sm"> Import zápasů</a>
         <a href="{{ url_for('admin_api_import_preview', source_id=source.id, import_type='results') }}" 
-           class="btn btn-sm">📊 Import výsledků</a>
+           class="btn btn-sm"> Import výsledků</a>
         <a href="{{ url_for('admin_api_source_edit', source_id=source.id) }}" 
            class="btn btn-sm">✏️ Upravit</a>
         <form method="post" action="{{ url_for('admin_api_source_delete', source_id=source.id) }}" 
@@ -19238,7 +19238,7 @@ self.addEventListener('notificationclick', event => {
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
           <button type="submit" class="btn btn-sm btn-danger" 
                   style="background:rgba(255,77,109,0.2); color:#ff4d6d; border:none; cursor:pointer;">
-            🗑️ Smazat
+            ️ Smazat
           </button>
         </form>
       </div>
@@ -19276,7 +19276,7 @@ self.addEventListener('notificationclick', event => {
   <h3 style="margin: 0 0 12px 0;">ℹ️ Podporované API</h3>
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
     <div>
-      <div style="font-weight: 700; margin-bottom: 4px;">🏒 NHL API</div>
+      <div style="font-weight: 700; margin-bottom: 4px;"> NHL API</div>
       <div class="muted" style="font-size: 13px;">Oficiální NHL API - zdarma, bez registrace</div>
     </div>
     <div>
@@ -19288,7 +19288,7 @@ self.addEventListener('notificationclick', event => {
       <div class="muted" style="font-size: 13px;">Fotbalové ligy - zdarma (pozor na dostupnost aktuální sezóny)</div>
     </div>
     <div>
-      <div style="font-weight: 700; margin-bottom: 4px;">🏆 UEFA UCL (All fixtures)</div>
+      <div style="font-weight: 700; margin-bottom: 4px;"> UEFA UCL (All fixtures)</div>
       <div class="muted" style="font-size: 13px;">Liga mistrů - zdarma z oficiální UEFA stránky (scrape)</div>
     </div>
   </div>
@@ -19358,10 +19358,10 @@ self.addEventListener('notificationclick', event => {
         <label class="muted" style="margin-bottom: 6px; display: block;">Typ API *</label>
         <select name="api_type" id="api_type" required onchange="toggleAPIFields()">
           <option value="">-- Vyber API --</option>
-          <option value="nhl">🏒 NHL API (hokej)</option>
+          <option value="nhl"> NHL API (hokej)</option>
           <option value="api-football">⚽ API-Football (fotbal - placené)</option>
           <option value="thesportsdb">⚽ TheSportsDB (fotbal - ZDARMA!)</option>
-          <option value="uefa-ucl">🏆 UEFA UCL (All fixtures - ZDARMA!)</option>
+          <option value="uefa-ucl"> UEFA UCL (All fixtures - ZDARMA!)</option>
         </select>
       </div>
       
@@ -19397,9 +19397,9 @@ self.addEventListener('notificationclick', event => {
           <label class="muted" style="margin-bottom: 6px; display: block;">ID Ligy *</label>
           <input id="thesportsdb_league_id" name="league_id" placeholder="4631" disabled>
           <div class="muted" style="font-size: 12px; margin-top: 4px;">
-            <strong>🇨🇿 Česko:</strong> 4631 = Chance Liga (1. liga)<br>
-            <strong>🏆 Evropa:</strong> 4480 = Liga mistrů (Champions League)<br>
-            <strong>🌍 TOP Ligy:</strong> 4328 = Premier League, 4335 = La Liga, 4332 = Serie A, 4331 = Bundesliga<br>
+            <strong> Česko:</strong> 4631 = Chance Liga (1. liga)<br>
+            <strong> Evropa:</strong> 4480 = Liga mistrů (Champions League)<br>
+            <strong> TOP Ligy:</strong> 4328 = Premier League, 4335 = La Liga, 4332 = Serie A, 4331 = Bundesliga<br>
             <a href="https://www.thesportsdb.com/sport/Soccer" target="_blank">Najdi ID ligy →</a>
           </div>
         </div>
@@ -19434,7 +19434,7 @@ self.addEventListener('notificationclick', event => {
         </label>
         
         <div class="muted" style="font-size: 12px; margin-top: 8px; padding: 12px; background: rgba(110,168,254,.08); border-radius: 8px;">
-          💡 <strong>Tip:</strong> Automatický import můžeš nastavit později po otestování manuálního importu.
+           <strong>Tip:</strong> Automatický import můžeš nastavit později po otestování manuálního importu.
         </div>
       </div>
       
@@ -19597,7 +19597,7 @@ function toggleAPIFields() {
       <div>
         <label class="muted" style="margin-bottom: 6px; display: block;">Typ API *</label>
         <select name="api_type" id="api_type" required onchange="toggleAPIFields()">
-          <option value="nhl" {% if api_source.api_type == 'nhl' %}selected{% endif %}>🏒 NHL API (hokej)</option>
+          <option value="nhl" {% if api_source.api_type == 'nhl' %}selected{% endif %}> NHL API (hokej)</option>
           <option value="api-football" {% if api_source.api_type == 'api-football' %}selected{% endif %}>⚽ API-Football (fotbal)</option>
         </select>
       </div>
@@ -19677,7 +19677,7 @@ function toggleAPIFields() {
       </div>
       
       <div class="row" style="gap: 12px; margin-top: 16px;">
-        <button class="btn btn-primary" type="submit">💾 Uložit změny</button>
+        <button class="btn btn-primary" type="submit"> Uložit změny</button>
         <a class="btn" href="{{ url_for('admin_api_sources') }}">Zrušit</a>
       </div>
       
@@ -19753,7 +19753,7 @@ function toggleAPIFields() {
         db.session.commit()
         
         audit("api_source.delete", "APISource", source_id, name=source_name)
-        flash(f"🗑️ API zdroj '{source_name}' byl smazán.", "ok")
+        flash(f"️ API zdroj '{source_name}' byl smazán.", "ok")
         return redirect(url_for("admin_api_sources"))
     
     @app.route("/admin/api-import/preview/<int:source_id>/<import_type>")
@@ -19947,7 +19947,7 @@ function toggleAPIFields() {
 
 <div class="card">
   <h2 style="margin: 0 0 8px 0;">
-    {% if import_log.import_type == 'matches' %}📥 Preview importu zápasů{% else %}📊 Preview importu výsledků{% endif %}
+    {% if import_log.import_type == 'matches' %} Preview importu zápasů{% else %} Preview importu výsledků{% endif %}
   </h2>
   <div class="muted">{{ import_log.source.round.name }} • {{ import_log.source.api_type.upper() }}</div>
 </div>
@@ -19989,7 +19989,7 @@ function toggleAPIFields() {
 <form method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 <div class="card">
-  <h3 style="margin: 0 0 12px 0;">📋 Data k importu (zobrazeno max {{ games|length }})</h3>
+  <h3 style="margin: 0 0 12px 0;"> Data k importu (zobrazeno max {{ games|length }})</h3>
   
   <div style="margin-bottom: 12px;">
     <button type="button" class="btn btn-sm" onclick="selectAll()">✅ Vybrat vše</button>
@@ -20138,14 +20138,14 @@ window.addEventListener('DOMContentLoaded', function() {
         
         return render_page(r"""
 <div class="card">
-  <h2 style="margin: 0 0 8px 0;">📋 Historie importů</h2>
+  <h2 style="margin: 0 0 8px 0;"> Historie importů</h2>
   <div class="muted">Posledních 100 importů</div>
 </div>
 
 {% if logs|length == 0 %}
 <div class="card">
   <div style="text-align: center; padding: 40px;">
-    <div style="font-size: 48px; margin-bottom: 12px;">📋</div>
+    <div style="font-size: 48px; margin-bottom: 12px;"></div>
     <h3 style="margin: 0;">Žádná historie</h3>
   </div>
 </div>
@@ -20156,9 +20156,9 @@ window.addEventListener('DOMContentLoaded', function() {
       <div>
         <div class="row" style="gap: 8px; margin-bottom: 4px;">
           {% if log.import_type == 'matches' %}
-            <span class="tag">📥 Zápasy</span>
+            <span class="tag"> Zápasy</span>
           {% else %}
-            <span class="tag">📊 Výsledky</span>
+            <span class="tag"> Výsledky</span>
           {% endif %}
           
           {% if log.status == 'completed' %}
@@ -20424,7 +20424,7 @@ window.addEventListener('DOMContentLoaded', function() {
 </style>
 
 <div class="card">
-  <h2 style="margin:0 0 4px 0;">📤 Export dat</h2>
+  <h2 style="margin:0 0 4px 0;"> Export dat</h2>
   <div class="muted">Stáhni data z tipovačky ve strukturovaném formátu</div>
   <hr class="sep">
   
@@ -20434,7 +20434,7 @@ window.addEventListener('DOMContentLoaded', function() {
     <div class="export-grid">
       <label class="export-category">
         <input type="checkbox" name="export_teams" value="1" style="width:18px; height:18px;">
-        <strong style="margin-left:8px;">🏟️ Týmy</strong>
+        <strong style="margin-left:8px;">️ Týmy</strong>
         <div class="muted" style="font-size:12px; margin-top:4px;">Názvy týmů, skupiny, kódy zemí</div>
       </label>
       
@@ -20446,7 +20446,7 @@ window.addEventListener('DOMContentLoaded', function() {
       
       <label class="export-category">
         <input type="checkbox" name="export_tips" value="1" style="width:18px; height:18px;">
-        <strong style="margin-left:8px;">🎯 Tipy</strong>
+        <strong style="margin-left:8px;"> Tipy</strong>
         <div class="muted" style="font-size:12px; margin-top:4px;">Všechny tipy uživatelů</div>
       </label>
       
@@ -20458,7 +20458,7 @@ window.addEventListener('DOMContentLoaded', function() {
       
       <label class="export-category">
         <input type="checkbox" name="export_leaderboard" value="1" style="width:18px; height:18px;">
-        <strong style="margin-left:8px;">🏆 Žebříček</strong>
+        <strong style="margin-left:8px;"> Žebříček</strong>
         <div class="muted" style="font-size:12px; margin-top:4px;">Aktuální pořadí a statistiky</div>
       </label>
     </div>
@@ -20502,12 +20502,12 @@ window.addEventListener('DOMContentLoaded', function() {
     <div class="row" style="gap:16px;">
       <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
         <input type="radio" name="format" value="xlsx" checked style="width:18px; height:18px;">
-        <span>📊 Excel (.xlsx)</span>
+        <span> Excel (.xlsx)</span>
       </label>
     </div>
     
     <div class="row" style="gap:12px; margin-top:24px;">
-      <button type="submit" class="btn btn-primary">📥 Stáhnout export</button>
+      <button type="submit" class="btn btn-primary"> Stáhnout export</button>
       <a href="{{ url_for('admin_dashboard') }}" class="btn">← Zpět</a>
     </div>
   </form>
@@ -20614,7 +20614,7 @@ def purge_test_chance_liga_data():
 
         if purged_rounds or purged_matches:
             db.session.commit()
-            print(f"🧹 Purged test Chance Liga data: rounds={purged_rounds}, matches={purged_matches}")
+            print(f" Purged test Chance Liga data: rounds={purged_rounds}, matches={purged_matches}")
     except Exception as e:
         print(f"⚠️ purge_test_chance_liga_data failed: {e}")
         db.session.rollback()
@@ -20687,7 +20687,7 @@ def page_not_found(e):
     """Custom 404 error page"""
     return render_page(r"""
 <div class="card" style="text-align:center; padding:80px 20px; max-width:600px; margin:40px auto;">
-  <div style="font-size:120px; margin:0; line-height:1;">🔍</div>
+  <div style="font-size:120px; margin:0; line-height:1;"></div>
   <h1 style="font-size:48px; margin:20px 0 10px 0; color:#6ea8fe;">404</h1>
   <h2 style="margin:0 0 16px 0; font-weight:500;">Stránka nenalezena</h2>
   <p class="muted" style="font-size:15px; line-height:1.6; max-width:400px; margin:0 auto 32px auto;">
@@ -20695,8 +20695,8 @@ def page_not_found(e):
   </p>
   
   <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-    <a href="{{ url_for('home') }}" class="btn btn-primary">🏠 Domů</a>
-    <a href="{{ url_for('leaderboard') }}" class="btn">📊 Žebříček</a>
+    <a href="{{ url_for('home') }}" class="btn btn-primary"> Domů</a>
+    <a href="{{ url_for('leaderboard') }}" class="btn"> Žebříček</a>
     <a href="{{ url_for('matches') }}" class="btn">⚽ Zápasy</a>
   </div>
 </div>
@@ -20709,7 +20709,7 @@ def forbidden(e):
     
     return render_page(r"""
 <div class="card" style="text-align:center; padding:80px 20px; max-width:600px; margin:40px auto;">
-  <div style="font-size:120px; margin:0; line-height:1;">🚫</div>
+  <div style="font-size:120px; margin:0; line-height:1;"></div>
   <h1 style="font-size:48px; margin:20px 0 10px 0; color:#dc3545;">403</h1>
   <h2 style="margin:0 0 16px 0; font-weight:500;">Přístup zamítnut</h2>
   <p class="muted" style="font-size:15px; line-height:1.6; max-width:400px; margin:0 auto 32px auto;">
@@ -20717,11 +20717,11 @@ def forbidden(e):
   </p>
   
   <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-    <a href="{{ url_for('home') }}" class="btn btn-primary">🏠 Domů</a>
+    <a href="{{ url_for('home') }}" class="btn btn-primary"> Domů</a>
     {% if not current_user.is_authenticated %}
-      <a href="{{ url_for('login') }}" class="btn" style="background:#6ea8fe; color:white;">🔐 Přihlásit se</a>
+      <a href="{{ url_for('login') }}" class="btn" style="background:#6ea8fe; color:white;"> Přihlásit se</a>
     {% else %}
-      <a href="{{ url_for('leaderboard') }}" class="btn">📊 Žebříček</a>
+      <a href="{{ url_for('leaderboard') }}" class="btn"> Žebříček</a>
     {% endif %}
   </div>
 </div>
@@ -20746,7 +20746,7 @@ def internal_error(e):
     
     return render_page(r"""
 <div class="card" style="text-align:center; padding:80px 20px; max-width:600px; margin:40px auto;">
-  <div style="font-size:120px; margin:0; line-height:1;">💥</div>
+  <div style="font-size:120px; margin:0; line-height:1;"></div>
   <h1 style="font-size:48px; margin:20px 0 10px 0; color:#dc3545;">500</h1>
   <h2 style="margin:0 0 16px 0; font-weight:500;">Něco se pokazilo</h2>
   <p class="muted" style="font-size:15px; line-height:1.6; max-width:400px; margin:0 auto 16px auto;">
@@ -20757,8 +20757,8 @@ def internal_error(e):
   </p>
   
   <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-    <a href="{{ url_for('home') }}" class="btn btn-primary">🏠 Domů</a>
-    <a href="javascript:location.reload()" class="btn">🔄 Zkusit znovu</a>
+    <a href="{{ url_for('home') }}" class="btn btn-primary"> Domů</a>
+    <a href="javascript:location.reload()" class="btn"> Zkusit znovu</a>
   </div>
 </div>
 """), 500
@@ -20768,7 +20768,7 @@ def unauthorized(e):
     """Custom 401 error page"""
     return render_page(r"""
 <div class="card" style="text-align:center; padding:80px 20px; max-width:600px; margin:40px auto;">
-  <div style="font-size:120px; margin:0; line-height:1;">🔐</div>
+  <div style="font-size:120px; margin:0; line-height:1;"></div>
   <h1 style="font-size:48px; margin:20px 0 10px 0; color:#ffc107;">401</h1>
   <h2 style="margin:0 0 16px 0; font-weight:500;">Vyžadováno přihlášení</h2>
   <p class="muted" style="font-size:15px; line-height:1.6; max-width:400px; margin:0 auto 32px auto;">
@@ -20776,9 +20776,9 @@ def unauthorized(e):
   </p>
   
   <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-    <a href="{{ url_for('login') }}" class="btn btn-primary">🔐 Přihlásit se</a>
-    <a href="{{ url_for('register') }}" class="btn">📝 Registrovat se</a>
-    <a href="{{ url_for('home') }}" class="btn">🏠 Domů</a>
+    <a href="{{ url_for('login') }}" class="btn btn-primary"> Přihlásit se</a>
+    <a href="{{ url_for('register') }}" class="btn"> Registrovat se</a>
+    <a href="{{ url_for('home') }}" class="btn"> Domů</a>
   </div>
 </div>
 """), 401
