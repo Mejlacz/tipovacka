@@ -1,12 +1,11 @@
 """
 Database Models
-All SQLAlchemy models for Tipovacka
+Matching ACTUAL database schema (without migration)
 """
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
@@ -17,9 +16,8 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(190), unique=True, nullable=False, index=True)
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False, nullable=False)
-    is_verified = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    # NOTE: is_admin, is_verified, created_at NOT in database yet!
+    # Will need migration to add them later
 
 
 class Sport(db.Model):
@@ -34,16 +32,10 @@ class Round(db.Model):
     name = db.Column(db.String(140), nullable=False, index=True)
     sport_id = db.Column(db.Integer, db.ForeignKey("sport.id"), nullable=True)
     sport = db.relationship("Sport", lazy=True)
-    
-    # Deadlines
     tips_close_time = db.Column(db.DateTime, nullable=True)
     extra_close_time = db.Column(db.DateTime, nullable=True)
-    
-    # Status
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
-    
-    # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
 
@@ -133,7 +125,6 @@ class ExtraAnswer(db.Model):
 
 
 class Achievement(db.Model):
-    """Achievementy/Odznaky uživatelů"""
     __tablename__ = 'achievement'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
@@ -145,7 +136,6 @@ class Achievement(db.Model):
 
 
 class UndoStack(db.Model):
-    """Stack pro undo/redo operace"""
     __tablename__ = 'undo_stack'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
@@ -161,7 +151,6 @@ class UndoStack(db.Model):
 
 
 class PushSubscription(db.Model):
-    """Push notification subscriptions"""
     __tablename__ = 'push_subscription'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
@@ -177,7 +166,6 @@ class PushSubscription(db.Model):
 
 
 class NotificationPreferences(db.Model):
-    """Nastavení notifikací"""
     __tablename__ = 'notification_preferences'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True, unique=True)
@@ -201,7 +189,6 @@ class AuditLog(db.Model):
 
 
 class APISource(db.Model):
-    """Konfigurace API zdroje"""
     __tablename__ = 'api_source'
     id = db.Column(db.Integer, primary_key=True)
     round_id = db.Column(db.Integer, db.ForeignKey("round.id"), nullable=False, index=True)
@@ -222,7 +209,6 @@ class APISource(db.Model):
 
 
 class APIImportLog(db.Model):
-    """Log importů z API"""
     __tablename__ = 'api_import_log'
     id = db.Column(db.Integer, primary_key=True)
     source_id = db.Column(db.Integer, db.ForeignKey("api_source.id"), nullable=False, index=True)
@@ -242,7 +228,6 @@ class APIImportLog(db.Model):
 
 
 class MatchAPIMapping(db.Model):
-    """Mapování mezi zápasy a API ID"""
     __tablename__ = 'match_api_mapping'
     id = db.Column(db.Integer, primary_key=True)
     match_id = db.Column(db.Integer, db.ForeignKey("match.id"), nullable=False, unique=True)
