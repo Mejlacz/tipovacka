@@ -11940,6 +11940,70 @@ function submitBulkDelete() {
         
         return matches
     
+    def _parse_multiline_ocr_format(text: str) -> List[Dict]:
+        """
+        Parser pro screenshot formát kde OCR vrací:
+          07.03. 15:00
+          Bohemians
+          Slovan Liberec
+          07.03. 15:00
+          Slovácko
+          ...
+        Funguje tak, že projíždí řádky a hledá vzor: datetime_line, team1, team2
+        """
+        import re
+        from datetime import datetime
+
+        current_year = datetime.now().year
+        lines = [l.strip() for l in text.strip().split('\n') if l.strip()]
+
+        # Skip known junk headers
+        skip_patterns = [
+            r'^\d+\.\s*kolo', r'^bude se hrát', r'^česko', r'^chance liga',
+            r'^jme\s', r'^[☆★✩]', r'^\d+\.\s*kolo'
+        ]
+
+        def is_junk(line):
+            low = line.lower()
+            for p in skip_patterns:
+                if re.match(p, low):
+                    return True
+            if len(line) < 3:
+                return True
+            return False
+
+        # Regex pro "07.03. 15:00" nebo "07.03. 15:00" nebo "7.3. 15:00"
+        dt_pattern = re.compile(r'^(\d{1,2})\.(\d{1,2})\.?\s+(\d{1,2}):(\d{2})$')
+
+        results = []
+        clean_lines = [l for l in lines if not is_junk(l)]
+
+        i = 0
+        while i < len(clean_lines):
+            line = clean_lines[i]
+            m = dt_pattern.match(line)
+            if m and i + 2 < len(clean_lines):
+                day, month, hour, minute = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
+                home = clean_lines[i + 1]
+                away = clean_lines[i + 2]
+                # away line sometimes has trailing " -" from the dash column
+                away = re.sub(r'\s*-\s*$', '', away).strip()
+                home = re.sub(r'\s*-\s*$', '', home).strip()
+                # Make sure neither home nor away looks like a date/time
+                if home and away and not dt_pattern.match(home) and not dt_pattern.match(away):
+                    try:
+                        dt = datetime(current_year, month, day, hour, minute)
+                        results.append({
+                            'home_team': home,
+                            'away_team': away,
+                            'start_time': dt.isoformat(),
+                        })
+                        i += 3
+                        continue
+            i += 1
+
+        return results
+
     def smart_parse_matches(text: str, round_id: int = None) -> List[Dict]:
         """
         🤖 ULTRA SMART PARSER V2 - Better whitespace handling + OCR cleanup
@@ -11973,6 +12037,12 @@ function submitBulkDelete() {
         # Step 1: Clean OCR artifacts (vice>, |, extra whitespace)
         text = _clean_ocr_artifacts(text)
         
+        # TRY 0: Screenshot multi-line OCR format (datetime / team1 / team2)
+        ocr_multiline = _parse_multiline_ocr_format(text)
+        if ocr_multiline:
+            print(f"✅ OCR multiline parser: Nalezeno {len(ocr_multiline)} zápasů")
+            return ocr_multiline
+        
         # Step 2: Handle table copy/paste (all lines joined)
         text = _split_joined_lines(text)
         
@@ -11994,6 +12064,9 @@ function submitBulkDelete() {
                 continue
             if re.match(r'^\d+\.\s*kolo', line_raw, re.I):
                 print(f"⏭️ Přeskakuji kolo header: {line_raw}")
+                continue
+            if re.match(r'česko|chance liga|jme\s|bude se hrát', line_raw.lower()):
+                print(f"⏭️ Přeskakuji soutěž header: {line_raw}")
                 continue
             
             match_data = _parse_single_line(line_raw, line_num)
@@ -12345,6 +12418,7 @@ function submitBulkDelete() {
         
         # TRY 2: Now normalize whitespace for other formats
         line_normalized = re.sub(r'\s+', ' ', line.replace('\t', ' ')).strip()
+        parts = line_normalized.split()  # initialize here to avoid UnboundLocalError
         
         # TRY 3: Compact date format (OCR): "7.3.2026 Team1 Team2 15:00"
         if len(parts) >= 4 and _is_date(parts[0]):
@@ -12353,8 +12427,7 @@ function submitBulkDelete() {
                 return result
         
         # TRY 4: Date at start with spaces
-        # (Original TRY 3 now TRY 4) # Date at start with spaces
-        parts = line_normalized.split()
+        # parts already assigned above
         
         # "27. 2. 2026 Dukla - Slavia 18:00"
         if len(parts) >= 3 and _is_date(' '.join(parts[:3])):
@@ -12922,10 +12995,6 @@ function submitBulkDelete() {
                         print(f"❌ Screenshot processing error: {e}")
                         flash(f"❌ Chyba při zpracování screenshotu: {e}", "error")
                         return redirect(url_for("admin_smart_import"))
-                elif screenshot_data:
-                    # screenshot_data dorazilo, ale není validní data:image (race condition – JS nestihlo)
-                    flash("❌ Obrázek se nepodařilo načíst správně. Vlož screenshot znovu.", "error")
-                    return redirect(url_for("admin_smart_import"))
                 else:
                     # Text mode (default)
                     text = request.form.get("raw_text", "")
@@ -13783,10 +13852,6 @@ function submitBulkDelete() {
           const blob = item.getAsFile();
           const reader = new FileReader();
           
-          // Disable submit until FileReader finishes (prevents race condition)
-          const _submitBtn = document.querySelector('button[type="submit"].btn-primary');
-          if (_submitBtn) _submitBtn.disabled = true;
-          
           reader.onload = function(event) {
             const base64 = event.target.result;
             
@@ -13801,10 +13866,7 @@ function submitBulkDelete() {
             // Clear textarea (user pasted image, not text)
             document.getElementById('rawText').value = '';
             
-            // Re-enable submit – image data is now ready in the hidden field
-            if (_submitBtn) _submitBtn.disabled = false;
-            
-            console.log('✅ Screenshot pasted and ready for OCR');
+            console.log('✅ Screenshot pasted, will OCR on submit');
           };
           
           reader.readAsDataURL(blob);
