@@ -11943,56 +11943,68 @@ function submitBulkDelete() {
     def smart_parse_matches(text: str, round_id: int = None) -> List[Dict]:
         """
         🤖 ULTRA SMART PARSER V2 - Better whitespace handling + OCR cleanup
-
+        
         Podporované formáty:
-        - Table format: "27. 2. 2026DuklaSlavia18:00"
+        - Table format: "27. 2. 2026DuklaSlavia18:00" 
         - With spaces: "27. 2. 2026 Sparta - Slavia 18:00"
         - Date + time first: "27. 2. 20:00 Sparta vs Slavia"
         - CSV, Fortuna, UEFA, etc.
         - OCR from screenshots (with cleanup)
+        
+        Improvements:
+        - Skip non-match lines (headers like "24. kolo")
+        - Auto year-fill for partial dates
+        - Better team splitting
+        - OCR artifact cleanup
         """
+        
         # TRY 1: Multi-line app format (with -- separators)
         if '--' in text:
             print("🎯 Detected multi-line app format")
             matches = _parse_multiline_app_format(text)
             if matches:
                 print(f"✅ Multi-line parser: Found {len(matches)} matches")
+                # Convert datetime to ISO
                 for match in matches:
-                    if isinstance(match.get('start_time'), datetime):
+                    if 'start_time' in match and isinstance(match['start_time'], datetime):
                         match['start_time'] = match['start_time'].isoformat()
                 return matches
-
+        
+        # Step 1: Clean OCR artifacts (vice>, |, extra whitespace)
         text = _clean_ocr_artifacts(text)
+        
+        # Step 2: Handle table copy/paste (all lines joined)
         text = _split_joined_lines(text)
-
+        
         matches = []
         lines = text.strip().split('\n')
+        
         print(f"🤖 Smart Parser V2: Zpracovávám {len(lines)} řádků")
-
+        
         for line_num, line in enumerate(lines, 1):
+            # Don't normalize whitespace yet - some formats need it
             line_raw = line.strip()
-            if not line_raw or len(line_raw) < 3:
+            
+            if not line_raw or len(line_raw) < 5:
                 continue
-
-            low = line_raw.lower()
-            if low in {'kolo', 'round', 'zápasy', 'matches', 'bude se hrát'}:
+            
+            # Skip lines that are obviously not matches
+            if line_raw.lower() in ['kolo', 'round', 'zápasy', 'matches']:
                 print(f"⏭️ Přeskakuji header: {line_raw}")
                 continue
-            if re.match(r'^\d+\.\s*kolo\b', line_raw, re.I):
+            if re.match(r'^\d+\.\s*kolo', line_raw, re.I):
                 print(f"⏭️ Přeskakuji kolo header: {line_raw}")
                 continue
-            if re.match(r'^(česko:|chance liga|jme česko)', low):
-                print(f"⏭️ Přeskakuji soutěž header: {line_raw}")
-                continue
-
+            
             match_data = _parse_single_line(line_raw, line_num)
-            if not match_data:
-                continue
-
-            if isinstance(match_data.get('start_time'), datetime):
-                match_data['start_time'] = match_data['start_time'].isoformat()
-            matches.append(match_data)
-
+            if match_data:
+                # Convert datetime to ISO string for JSON
+                if 'start_time' in match_data and match_data['start_time']:
+                    if isinstance(match_data['start_time'], datetime):
+                        match_data['start_time'] = match_data['start_time'].isoformat()
+                
+                matches.append(match_data)
+        
         print(f"✅ Smart Parser V2: Nalezeno {len(matches)} zápasů")
         return matches
 
@@ -12319,43 +12331,44 @@ function submitBulkDelete() {
     def _parse_single_line(line: str, line_num: int = 0) -> Optional[Dict]:
         """
         IMPROVED: Better handling of different formats
-
+        
         Priority:
         1. Table format (no spaces): 27. 2. 2026DuklaSlavia18:00
-        2. Date with spaces: 27. 2. 2026 Dukla - Slavia 18:00 / 0:2
-        3. Compact OCR date: 7.3.2026 Team1 Team2 15:00
-        4. Other legacy formats
+        2. Date with spaces: 27. 2. 2026 Dukla - Slavia 18:00
+        3. Other formats
         """
-        if not line:
-            return None
-
+        
+        # TRY 1: Table format FIRST (before whitespace normalization!)
         result = _parse_table_format(line)
         if result:
             return result
-
+        
+        # TRY 2: Now normalize whitespace for other formats
         line_normalized = re.sub(r'\s+', ' ', line.replace('\t', ' ')).strip()
-        parts = line_normalized.split()
-        if not parts:
-            return None
-
+        
+        # TRY 3: Compact date format (OCR): "7.3.2026 Team1 Team2 15:00"
         if len(parts) >= 4 and _is_date(parts[0]):
             result = _parse_compact_date_format(line_normalized, parts)
             if result:
                 return result
-
+        
+        # TRY 4: Date at start with spaces
+        # (Original TRY 3 now TRY 4) # Date at start with spaces
+        parts = line_normalized.split()
+        
+        # "27. 2. 2026 Dukla - Slavia 18:00"
         if len(parts) >= 3 and _is_date(' '.join(parts[:3])):
-            result = _parse_date_first_format(line_normalized, parts)
-            if result:
-                return result
-
+            return _parse_date_first_format(line_normalized, parts)
+        
+        # "27. 2. 20:00 Sparta vs Slavia"
         if len(parts) >= 4:
             potential_date = ' '.join(parts[:2])
             potential_time = parts[2]
+            
             if _is_date(potential_date) and re.match(r'^\d{1,2}:\d{2}$', potential_time):
-                result = _parse_date_time_first(line_normalized, parts)
-                if result:
-                    return result
-
+                return _parse_date_time_first(line_normalized, parts)
+        
+        # TRY 5: Other parsers
         parsers = [
             _parse_fortuna_style,
             _parse_uefa_style,
@@ -12365,7 +12378,7 @@ function submitBulkDelete() {
             _parse_vs_style,
             _parse_dash_style,
         ]
-
+        
         for parser in parsers:
             try:
                 result = parser(line_normalized)
@@ -12373,8 +12386,8 @@ function submitBulkDelete() {
                     return result
             except Exception:
                 continue
-
-        print(f"⚠️ Nepodařilo se parsovat řádek {line_num}: {line_normalized[:80]}")
+        
+        print(f"⚠️ Nepodařilo se parsovat řádek {line_num}: {line[:50]}")
         return None
 
 
@@ -12909,6 +12922,10 @@ function submitBulkDelete() {
                         print(f"❌ Screenshot processing error: {e}")
                         flash(f"❌ Chyba při zpracování screenshotu: {e}", "error")
                         return redirect(url_for("admin_smart_import"))
+                elif screenshot_data:
+                    # screenshot_data dorazilo, ale není validní data:image (race condition – JS nestihlo)
+                    flash("❌ Obrázek se nepodařilo načíst správně. Vlož screenshot znovu.", "error")
+                    return redirect(url_for("admin_smart_import"))
                 else:
                     # Text mode (default)
                     text = request.form.get("raw_text", "")
@@ -13682,8 +13699,8 @@ function submitBulkDelete() {
           matches.push({
             home_team: homeTeam,
             away_team: awayTeam,
-            home_score: homeScore ? parseInt(homeScore) : null,
-            away_score: awayScore ? parseInt(awayScore) : null,
+            home_score: homeScore !== "" ? parseInt(homeScore, 10) : null,
+            away_score: awayScore !== "" ? parseInt(awayScore, 10) : null,
             start_time: startTime || null
           });
         }
@@ -13766,6 +13783,10 @@ function submitBulkDelete() {
           const blob = item.getAsFile();
           const reader = new FileReader();
           
+          // Disable submit until FileReader finishes (prevents race condition)
+          const _submitBtn = document.querySelector('button[type="submit"].btn-primary');
+          if (_submitBtn) _submitBtn.disabled = true;
+          
           reader.onload = function(event) {
             const base64 = event.target.result;
             
@@ -13780,7 +13801,10 @@ function submitBulkDelete() {
             // Clear textarea (user pasted image, not text)
             document.getElementById('rawText').value = '';
             
-            console.log('✅ Screenshot pasted, will OCR on submit');
+            // Re-enable submit – image data is now ready in the hidden field
+            if (_submitBtn) _submitBtn.disabled = false;
+            
+            console.log('✅ Screenshot pasted and ready for OCR');
           };
           
           reader.readAsDataURL(blob);
