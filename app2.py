@@ -2,17 +2,10 @@
 from __future__ import annotations
 import base64
 
-import csv
 import io
 import json
 import os
 import re
-import hashlib
-import secrets
-import smtplib
-import tempfile
-import requests
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 # OCR support (optional - install with: pip install pytesseract pillow)
@@ -24,11 +17,7 @@ try:
 except ImportError:
     TESSERACT_AVAILABLE = False
     print("⚠️ Tesseract OCR not available - install with: pip install pytesseract pillow")
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from typing import Any, Dict, List, Optional, Tuple
-from zoneinfo import ZoneInfo
-
+from typing import Optional
 from flask import (
     Flask,
     Response,
@@ -49,8 +38,6 @@ from flask_login import (
     logout_user,
 )
 from sqlalchemy.exc import OperationalError, IntegrityError
-from flask_wtf.csrf import generate_csrf
-from werkzeug.security import check_password_hash, generate_password_hash
 from routes import register_all_routes
 
 # BODY 1–8 (v jedné verzi)
@@ -113,7 +100,6 @@ self.addEventListener('fetch', (event) => { /* network-first */ });
             return Response(_TRANSPARENT_PNG, mimetype="image/png")
         app.add_url_rule("/pwa-icon/<int:size>", endpoint="pwa_icon", view_func=_pwa_icon_fallback)
 
-
 # APP + EXTENSIONS
 from extensions import db, login_manager, csrf
 from app_utils import (
@@ -141,7 +127,6 @@ from api_parsers import (
     fetch_thesportsdb_games, fetch_uefa_ucl_all_fixtures,
     fetch_api_games, import_matches_from_api, import_results_from_api,
 )
-
 
 def _init_db_once(app: Flask) -> None:
     """
@@ -227,8 +212,6 @@ def _init_db_once(app: Flask) -> None:
         except Exception:
             pass
 
-
-
 # ROUTE ALIASES (prevents 404 on trailing slashes / renamed endpoints)
 
 def _install_route_aliases(app: Flask) -> None:
@@ -252,7 +235,6 @@ def _install_route_aliases(app: Flask) -> None:
     # Root index sometimes expected
     if 'home' in app.view_functions and '/' not in {r.rule for r in app.url_map.iter_rules()}:
         app.add_url_rule('/', endpoint='root', view_func=lambda: _redir('home'))
-
 
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
@@ -291,7 +273,6 @@ def create_app() -> Flask:
 
     return app
 
-
 # MODELY
 from models import (
     User, Sport, Round, Team, TeamAlias, Match, Tip,
@@ -302,22 +283,7 @@ from models import (
 # LOGIN LOADER
 # PASSWORD VALIDATION
 
-
 # EMAIL SYSTEM
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # USER LOADER
 @login_manager.user_loader
@@ -328,30 +294,10 @@ def load_user(user_id: str) -> Optional[User]:
         return None
     return db.session.get(User, uid)
 
-
 # HELPERS
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # UNDO/REDO SYSTEM
 import json
-
-
-
-
 
 # PUSH NOTIFICATIONS
 
@@ -360,34 +306,6 @@ import json
 VAPID_PRIVATE_KEY = "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZzhjWVNJc2R4aDhXenMrSWgKd0N5THoyTk9ZQk1oK3BBbFhKNy9SWE0yYmZxaFJBTkNBQVR4M2NORjZ0Q215KzloVEtzekQ2bUxCK3RtREhlTwp1YTZBRHF5SFhYRnB4enk3bkJzNFk5dHFEUnVGN1Z0c3orKzFQdFRaanl0WnpkZlRodk1TWGNUZQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg"
 VAPID_PUBLIC_KEY = "BPHdw0Xq0KbL72FMqzMPqYsH62YMd465roAOrIddcWnHPLucGzhj22oNG4XtW2zP77U-1NmPK1nN19OG8xJdxN4"
 VAPID_CLAIMS = {"sub": "mailto:admin@tipovacka.cz"}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # ACHIEVEMENTY / ODZNAKY
 
@@ -478,9 +396,6 @@ ACHIEVEMENTS = {
     }
 }
 
-
-
-
 def _award_achievement(user_id: int, achievement_type: str, round_id: int = None):
     """Uděl achievement (pokud ho už nemá)"""
     existing = Achievement.query.filter_by(
@@ -498,27 +413,9 @@ def _award_achievement(user_id: int, achievement_type: str, round_id: int = None
         db.session.add(achievement)
         db.session.commit()
 
-
-
-
-
-
 # ACHIEVEMENTY / ODZNAKY
 
-
-
-
-
-
-
-
-
-
-
-
-
 # UI (JEDEN BASE + inline stránky)
-
 
 def _parse_uefa_day_header(line: str, default_year: int) -> Optional[datetime]:
     """
@@ -546,27 +443,14 @@ def _parse_uefa_day_header(line: str, default_year: int) -> Optional[datetime]:
     except Exception:
         return None
 
-
 def _normalize_team_name(name: str) -> str:
     return re.sub(r"\s+", " ", (name or "").strip())
-
-
-
-
-
-
-
-
-
-
-
 
 if __name__ == "__main__":
     # Production: Gunicorn starts the app via Procfile
     # Development: python app2.py
     # app.run(debug=True, host='0.0.0.0', port=5000)
     pass
-
 
 if __name__ == "__main__":
     # Production: Gunicorn starts the app via Procfile

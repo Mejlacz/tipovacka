@@ -9,14 +9,12 @@ import re
 import json
 import secrets
 import smtplib
-import pickle
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional, Tuple
 
-from flask import abort, request, session, render_template_string
+from flask import abort, session, render_template_string
 from flask_wtf.csrf import generate_csrf
 from flask_login import current_user
-from werkzeug.security import generate_password_hash
 from flask import Response
 
 from extensions import db
@@ -41,12 +39,9 @@ from email.mime.multipart import MIMEMultipart
 OWNER_ADMIN_EMAIL = os.environ.get("OWNER_ADMIN_EMAIL", "3049@email.cz")
 SECRET_USER_EMAIL = os.environ.get("SECRET_USER_EMAIL", "kubamartinec97@gmail.com")
 
-
-
 # =========================================================
 # VALIDACE HESLA
 # =========================================================
-
 
 def validate_password(password: str) -> Tuple[bool, str]:
     """
@@ -80,7 +75,6 @@ def validate_password(password: str) -> Tuple[bool, str]:
 # =========================================================
 # EMAIL CONFIG + ODESÍLÁNÍ
 # =========================================================
-
 
 def get_email_config():
     """
@@ -666,7 +660,6 @@ def send_welcome_with_reset_link(user: User, base_url: str) -> bool:
 # DATETIME HELPERS
 # =========================================================
 
-
 def now_utc() -> datetime:
     """Returns current Czech local time (Europe/Prague) as naive datetime.
 
@@ -705,7 +698,6 @@ def dt_to_input_value(dt: Optional[datetime]) -> str:
 # AUTH / PERMISSION HELPERS
 # =========================================================
 
-
 def admin_required() -> None:
     if not current_user.is_authenticated or not getattr(current_user, 'is_admin_effective', False):
         abort(403)
@@ -726,7 +718,6 @@ def can_see_user_in_admin(user: User) -> bool:
 # =========================================================
 # AUDIT LOG + UNDO
 # =========================================================
-
 
 def audit(action: str, entity: str, entity_id: Optional[int] = None, **details: Any) -> None:
     try:
@@ -816,7 +807,6 @@ def perform_undo(undo_id: int) -> dict:
 # =========================================================
 # PUSH NOTIFIKACE
 # =========================================================
-
 
 def send_push_notification(user_id: int, title: str, body: str, data: dict = None, icon: str = "/static/icon-192.png"):
     """
@@ -1111,7 +1101,6 @@ def send_new_round_notification(round_name: str):
 # ROUND SESSION HELPERS
 # =========================================================
 
-
 def get_selected_round_id() -> Optional[int]:
     rid = session.get("selected_round_id")
     if rid is None:
@@ -1143,7 +1132,6 @@ def ensure_selected_round() -> Optional[int]:
 # =========================================================
 # HERNÍ LOGIKA
 # =========================================================
-
 
 def is_tips_locked(r: Round, m: Optional[Match] = None) -> bool:
     # lock by round deadline
@@ -1361,7 +1349,6 @@ def get_cached_round_score(round_id: int, user_id: int) -> Optional[RoundUserSco
 # RESPONSE HELPERS
 # =========================================================
 
-
 def csv_response(filename_ascii: str, content: str) -> Response:
     resp = Response(content, mimetype="text/csv; charset=utf-8")
     resp.headers["Content-Disposition"] = f'attachment; filename="{filename_ascii}"'
@@ -1375,7 +1362,6 @@ def binary_response(filename_ascii: str, content: bytes, mimetype: str) -> Respo
 # =========================================================
 # RENDER PAGE
 # =========================================================
-
 
 def render_page(content_html: str, **ctx):
     selected = None
@@ -1400,11 +1386,9 @@ def render_page(content_html: str, **ctx):
         **ctx,
     )
 
-
 # =========================================================
 # COMPUTE LEADERBOARD
 # =========================================================
-
 
 def compute_leaderboard(round_id: int) -> list:
     """
@@ -1447,3 +1431,60 @@ def compute_leaderboard(round_id: int) -> list:
     for i, entry in enumerate(result, 1):
         entry["rank"] = i
     return result
+
+
+# =========================================================
+# HELPER FUNKCE – eliminace duplicitního kódu
+# =========================================================
+
+def get_current_round():
+    """
+    Vrátí aktuálně vybranou soutěž (Round) nebo None.
+    Zkracuje opakující se vzor v routes:
+        rid = ensure_selected_round()
+        r = db.session.get(Round, rid) if rid else None
+    """
+    from models import Round
+    rid = ensure_selected_round()
+    return db.session.get(Round, rid) if rid else None
+
+
+def cleanup_temp_file(path: str) -> None:
+    """Bezpečně smaže dočasný soubor – ignoruje chyby."""
+    if path and os.path.exists(path):
+        try:
+            os.unlink(path)
+        except Exception:
+            pass
+
+
+def make_xlsx_response(wb, filename: str):
+    """
+    Převede openpyxl Workbook na Flask download response.
+    Použití:  return make_xlsx_response(wb, "export.xlsx")
+    """
+    from io import BytesIO
+    from flask import send_file
+    out = BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return send_file(
+        out,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        download_name=filename,
+        as_attachment=True,
+    )
+
+
+def xlsx_header_row(ws, headers: list, color: str = '217346') -> None:
+    """
+    Zapíše tučný barevný header řádek do Excel listu.
+    Použití:  xlsx_header_row(ws, ['ID', 'Jméno', 'Body'], color='4472C4')
+    """
+    from openpyxl.styles import PatternFill, Font
+    fill = PatternFill('solid', fgColor=color)
+    font = Font(color='FFFFFF', bold=True)
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.fill = fill
+        cell.font = font
