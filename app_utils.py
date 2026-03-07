@@ -13,14 +13,12 @@ import pickle
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from flask import abort, request, session, render_template_string
-from flask_wtf.csrf import generate_csrf
+from flask import abort, request, session
 from flask_login import current_user
 from werkzeug.security import generate_password_hash
 from flask import Response
 
 from extensions import db
-from base_html import BASE_HTML
 from models import (
     User, Round, Match, Tip, Team,
     RoundUserScore, UndoStack, AuditLog,
@@ -1371,79 +1369,3 @@ def binary_response(filename_ascii: str, content: bytes, mimetype: str) -> Respo
     resp = Response(content, mimetype=mimetype)
     resp.headers["Content-Disposition"] = f'attachment; filename="{filename_ascii}"'
     return resp
-
-# =========================================================
-# RENDER PAGE
-# =========================================================
-
-
-def render_page(content_html: str, **ctx):
-    selected = None
-    rounds = []
-    if current_user.is_authenticated:
-        rounds = get_rounds_for_switch()
-        selected = ensure_selected_round()
-
-    # Odstranit z ctx pokud tam náhodou jsou (zabránit konfliktu)
-    ctx.pop('rounds_for_switch', None)
-    ctx.pop('selected_round_id_for_switch', None)
-    
-    # Přidat CSRF token funkci do kontextu
-    ctx['csrf_token'] = generate_csrf
-
-    inner = render_template_string(content_html, rounds_for_switch=rounds, selected_round_id_for_switch=selected, **ctx)
-    return render_template_string(
-        BASE_HTML,
-        content=inner,
-        rounds_for_switch=rounds,
-        selected_round_id_for_switch=selected,
-        **ctx,
-    )
-
-
-# =========================================================
-# COMPUTE LEADERBOARD
-# =========================================================
-
-
-def compute_leaderboard(round_id: int) -> list:
-    """
-    Vypočítá žebříček pro danou soutěž.
-    Vrací list dictů: rank, username, total_points, exact, diff, tend, wrong
-    """
-    matches = Match.query.filter_by(round_id=round_id, is_deleted=False).filter(
-        Match.home_score != None, Match.away_score != None
-    ).all()
-    users = User.query.order_by(User.username.asc()).all()
-    result = []
-    for u in users:
-        tips = Tip.query.filter_by(user_id=u.id).filter(
-            Tip.match_id.in_([m.id for m in matches])
-        ).all() if matches else []
-        if not tips:
-            continue
-        tip_map = {t.match_id: t for t in tips}
-        total = exact = diff = tend = wrong = 0
-        for m in matches:
-            t = tip_map.get(m.id)
-            if not t:
-                continue
-            pts = calc_points_for_tip(m, t)
-            total += pts
-            if pts == 3:
-                exact += 1
-            elif pts == 2:
-                diff += 1
-            elif pts == 1:
-                tend += 1
-            else:
-                wrong += 1
-        result.append({
-            "user_id": u.id, "username": u.display_name,
-            "total_points": total, "exact": exact,
-            "diff": diff, "tend": tend, "wrong": wrong,
-        })
-    result.sort(key=lambda x: (-x["total_points"], -x["exact"], x["username"].lower()))
-    for i, entry in enumerate(result, 1):
-        entry["rank"] = i
-    return result
