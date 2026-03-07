@@ -1,42 +1,21 @@
 """
-routes/auth.py
+Authentication Routes
+Login, register, logout, password reset, email verification
 """
 
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask_login import login_user, logout_user, current_user, login_required
+from werkzeug.security import check_password_hash, generate_password_hash
+from extensions import db
+from models import User, PasswordReset, EmailVerification
+from services.email_service import send_password_reset_email, send_verification_email, send_welcome_email
 from datetime import datetime, timedelta
 import secrets
 
-from werkzeug.security import check_password_hash, generate_password_hash
-from flask import request, flash, redirect, url_for, abort, session
-from flask_login import current_user, login_required, login_user, logout_user
+auth_bp = Blueprint("auth", __name__)
 
-from models import Round, User
-from app_utils import audit, ensure_selected_round, get_email_config, render_page, send_password_reset_email, send_verification_email, set_selected_round_id, validate_password
-from extensions import db
 
-def register_auth(app):
-    @app.route("/old-index-redirect")
-    def index():
-        if current_user.is_authenticated:
-            return redirect(url_for("dashboard"))
-        return redirect(url_for("login"))
-
-    @app.route("/set-round", methods=["POST"])
-    @login_required
-    def set_round():
-        rid = int(request.form["round_id"])
-        r = db.session.get(Round, rid)
-        if not r:
-            abort(404)
-        set_selected_round_id(r.id)
-        audit("round.switch", "Round", r.id)
-        nxt = (request.form.get("next") or "").strip()
-        if nxt.startswith("/"):
-            return redirect(nxt)
-        return redirect(url_for("matches"))
-
-    # --- AUTH ---
-
-    @app.route("/register", methods=["GET", "POST"])
+    @auth_bp.route("/register", methods=["GET", "POST"])
     def register():
         if current_user.is_authenticated:
             return redirect(url_for("matches"))
@@ -108,11 +87,11 @@ def register_auth(app):
             return redirect(url_for("login"))
 
         return render_page(r"""
-    <div class="card">
-      <h2 style="margin:0 0 8px 0;">Registrace</h2>
-      <div class="muted">Vytvoř si účet pro účast v tipovací soutěži</div>
-      <hr class="sep">
-      <form method="post" class="row" style="flex-direction:column; align-items:stretch; gap:10px;">
+<div class="card">
+  <h2 style="margin:0 0 8px 0;">Registrace</h2>
+  <div class="muted">Vytvoř si účet pro účast v tipovací soutěži</div>
+  <hr class="sep">
+  <form method="post" class="row" style="flex-direction:column; align-items:stretch; gap:10px;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <div>
       <label class="muted" style="margin-bottom:6px; display:block;">Email *</label>
@@ -150,13 +129,15 @@ def register_auth(app):
       </div>
     </div>
     <button class="btn btn-primary" type="submit">Registrovat</button>
-      </form>
-      <hr class="sep">
-      <div class="muted">Už máš účet? <a href="{{ url_for('login') }}">Přihlásit se</a></div>
-    </div>
-    """)
+  </form>
+  <hr class="sep">
+  <div class="muted">Už máš účet? <a href="{{ url_for('login') }}">Přihlásit se</a></div>
+</div>
+""")
 
-    @app.route("/login", methods=["GET", "POST"])
+
+
+    @auth_bp.route("/login", methods=["GET", "POST"])
     def login():
         if current_user.is_authenticated:
             return redirect(url_for("matches"))
@@ -182,24 +163,26 @@ def register_auth(app):
             return redirect(url_for("matches"))
 
         return render_page(r"""
-    <div class="card">
-      <h2 style="margin:0 0 8px 0;">Login</h2>
-      <form method="post" class="row" style="flex-direction:column; align-items:stretch; gap:10px;">
+<div class="card">
+  <h2 style="margin:0 0 8px 0;">Login</h2>
+  <form method="post" class="row" style="flex-direction:column; align-items:stretch; gap:10px;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <input name="email" placeholder="Email" required>
     <input name="password" type="password" placeholder="Heslo" required>
     <button class="btn btn-primary" type="submit">Přihlásit</button>
-      </form>
-      <hr class="sep">
-      <div class="muted">
+  </form>
+  <hr class="sep">
+  <div class="muted">
     Nemáš účet? <a href="{{ url_for('register') }}">Registrace</a>
     <br>
     Zapomněl jsi heslo? <a href="{{ url_for('forgot_password') }}">Reset hesla</a>
-      </div>
-    </div>
-    """)
+  </div>
+</div>
+""")
 
-    @app.route("/logout")
+
+
+    @auth_bp.route("/logout")
     @login_required
     def logout():
         audit("user.logout", "User", current_user.id)
@@ -208,7 +191,8 @@ def register_auth(app):
 
     # --- EMAIL VERIFIKACE ---
 
-    @app.route("/verify-email/<token>")
+
+    @auth_bp.route("/verify-email/<token>")
     def verify_email(token: str):
         """Potvrzení emailu po registraci"""
         user = User.query.filter_by(verification_token=token).first()
@@ -234,60 +218,8 @@ def register_auth(app):
 
     # --- ZAPOMENUTÉ HESLO ---
 
-    @app.route("/forgot-password", methods=["GET", "POST"])
-    def forgot_password():
-        """Formulář pro zadání emailu - pošle reset link"""
-        if current_user.is_authenticated:
-            return redirect(url_for("dashboard"))
 
-        if request.method == "POST":
-            email = (request.form.get("email") or "").strip().lower()
-
-            if not email:
-                flash("Zadej email.", "error")
-                return redirect(url_for("forgot_password"))
-
-            user = User.query.filter_by(email=email).first()
-
-            # I když uživatel neexistuje, zobraz stejnou zprávu (bezpečnost)
-            if user:
-                # Vygeneruj reset token
-                user.reset_token = secrets.token_urlsafe(32)
-                user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
-                db.session.commit()
-                audit("user.password_reset_requested", "User", user.id)
-
-                # Pošli reset email
-                base_url = request.url_root.rstrip('/')
-                send_password_reset_email(user, base_url)
-
-            flash("📧 Pokud email existuje, poslali jsme ti odkaz na reset hesla. Zkontroluj schránku.", "ok")
-            return redirect(url_for("login"))
-
-        return render_page(r"""
-    <div class="card">
-      <h2 style="margin:0 0 8px 0;">Zapomenuté heslo</h2>
-      <div class="muted">Zadej svůj email a pošleme ti odkaz na reset hesla</div>
-      <hr class="sep">
-      <form method="post" class="row" style="flex-direction:column; align-items:stretch; gap:10px;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-    <div>
-      <label class="muted" style="margin-bottom:6px; display:block;">Email</label>
-      <input name="email" type="email" placeholder="tvuj@email.cz" required autofocus>
-    </div>
-    <div class="row" style="gap:10px;">
-      <button class="btn btn-primary" type="submit">📧 Poslat reset link</button>
-      <a class="btn" href="{{ url_for('login') }}">Zrušit</a>
-    </div>
-      </form>
-      <hr class="sep">
-      <div class="muted">
-    Vzpomněl sis? <a href="{{ url_for('login') }}">Přihlásit se</a>
-      </div>
-    </div>
-    """)
-
-    @app.route("/reset-password/<token>", methods=["GET", "POST"])
+    @auth_bp.route("/reset-password/<token>", methods=["GET", "POST"])
     def reset_password(token: str):
         """Formulář pro nastavení nového hesla"""
         if current_user.is_authenticated:
@@ -333,11 +265,11 @@ def register_auth(app):
             return redirect(url_for("login"))
 
         return render_page(r"""
-    <div class="card">
-      <h2 style="margin:0 0 8px 0;">Nové heslo</h2>
-      <div class="muted">Zadej si nové silné heslo</div>
-      <hr class="sep">
-      <form method="post" class="row" style="flex-direction:column; align-items:stretch; gap:10px;">
+<div class="card">
+  <h2 style="margin:0 0 8px 0;">Nové heslo</h2>
+  <div class="muted">Zadej si nové silné heslo</div>
+  <hr class="sep">
+  <form method="post" class="row" style="flex-direction:column; align-items:stretch; gap:10px;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <div>
       <label class="muted" style="margin-bottom:6px; display:block;">Nové heslo *</label>
@@ -354,78 +286,9 @@ def register_auth(app):
       <button class="btn btn-primary" type="submit">🔑 Nastavit heslo</button>
       <a class="btn" href="{{ url_for('login') }}">Zrušit</a>
     </div>
-      </form>
-    </div>
-    """, title="Reset hesla")
+  </form>
+</div>
+""", title="Reset hesla")
 
     # --- ZMĚNA HESLA (pro všechny přihlášené uživatele) ---
-
-    @app.route("/change-password", methods=["GET", "POST"])
-    @login_required
-    def change_password():
-        if request.method == "POST":
-            old_password = request.form.get("old_password", "").strip()
-            new_password = request.form.get("new_password", "").strip()
-            confirm_password = request.form.get("confirm_password", "").strip()
-
-            # Validace
-            if not old_password or not new_password or not confirm_password:
-                flash("Všechna pole jsou povinná.", "error")
-                return redirect(url_for("change_password"))
-
-            # Kontrola starého hesla
-            if not check_password_hash(current_user.password_hash, old_password):
-                flash("Staré heslo je nesprávné.", "error")
-                return redirect(url_for("change_password"))
-
-            # Kontrola že nové hesla souhlasí
-            if new_password != confirm_password:
-                flash("Nová hesla se neshodují.", "error")
-                return redirect(url_for("change_password"))
-
-            # Validace síly nového hesla
-            is_valid, error_msg = validate_password(new_password)
-            if not is_valid:
-                flash(error_msg, "error")
-                return redirect(url_for("change_password"))
-
-            # Změna hesla
-            current_user.password_hash = generate_password_hash(new_password)
-            db.session.commit()
-            audit("user.change_password", "User", current_user.id)
-            flash("Heslo bylo úspěšně změněno.", "ok")
-            return redirect(url_for("dashboard"))
-
-        # GET - zobraz formulář
-        return render_page(r"""
-    <div class="card">
-      <h2 style="margin:0 0 8px 0;">Změna hesla</h2>
-      <div class="muted">Změňte si heslo pro svůj účet</div>
-      <hr class="sep">
-      <form method="post">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-    <div class="form-group">
-      <label>Staré heslo</label>
-      <input type="password" name="old_password" required autofocus>
-    </div>
-    <div class="form-group">
-      <label>Nové heslo</label>
-      <input type="password" name="new_password" required minlength="8">
-      <div class="muted" style="font-size:12px; margin-top:4px;">
-        Požadavky: min. 8 znaků, velké/malé písmeno, číslo
-      </div>
-    </div>
-    <div class="form-group">
-      <label>Potvrďte nové heslo</label>
-      <input type="password" name="confirm_password" required minlength="8">
-    </div>
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">Změnit heslo</button>
-      <a href="{{ url_for('dashboard') }}" class="btn">Zrušit</a>
-    </div>
-      </form>
-    </div>
-    """, title="Změna hesla")
-
-    # --- DASHBOARD (ÚVODNÍ STRÁNKA) ---
 
