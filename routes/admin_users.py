@@ -10,6 +10,7 @@ import re
 import pickle
 import tempfile
 
+from typing import Optional, List, Dict
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font
 from flask import request, flash, redirect, url_for, abort, send_file, session
