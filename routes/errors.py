@@ -2,6 +2,7 @@
 routes/errors.py
 """
 from flask_login import current_user
+from extensions import db
 
 from app_utils import render_page
 
