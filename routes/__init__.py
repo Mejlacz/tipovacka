@@ -10,7 +10,7 @@ from .admin_rounds import register_admin_rounds
 from .admin_core   import register_admin_core
 from .admin_import import register_admin_import
 # from .admin_api    import register_admin_api
-from .pwa          import register_pwa
+# from .pwa          import register_pwa  # PWA vypnuto
 from .errors       import register_errors
 
 
