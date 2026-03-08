@@ -10,7 +10,7 @@ from flask_login import current_user, login_required
 from models import ExtraAnswer, ExtraQuestion, Match, Round, Team, Tip, User
 from app_utils import audit, calc_points_for_tip, check_and_award_achievements, ensure_selected_round, get_user_achievements, is_extras_locked, is_tips_locked, now_utc, recompute_round_user_score, render_page
 from extensions import db
-from config import SECRET_USER_EMAIL
+from config import SECRET_USER_EMAIL, ACHIEVEMENTS
 
 def register_main(app):
     @app.route("/")
