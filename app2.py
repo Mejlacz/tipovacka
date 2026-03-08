@@ -108,11 +108,67 @@ def _install_route_aliases(app: Flask) -> None:
 
 
 # =========================================================
+# PURGE TESTOVACÍCH DAT (Chance Liga)
+# =========================================================
+
+def purge_test_chance_liga_data() -> None:
+    """Idempotentní mazání starých testovacích dat (Chance Liga).
+
+    Maže pouze kola jejichž název obsahuje 'Chance Liga' A nemají žádné tipy.
+    Kontrolováno env proměnnou PURGE_TEST_CHANCE_LIGA (default '1').
+    """
+    if os.getenv("PURGE_TEST_CHANCE_LIGA", "1").strip().lower() in ("0", "false", "no"):
+        return
+    try:
+        candidates = Round.query.filter(Round.name.ilike("%Chance Liga%")).all()
+        purged_rounds = 0
+        purged_matches = 0
+        for rnd in candidates:
+            has_tips = (
+                db.session.query(Tip.id)
+                .join(Match, Tip.match_id == Match.id)
+                .filter(Match.round_id == rnd.id)
+                .limit(1)
+                .first()
+                is not None
+            )
+            if has_tips:
+                continue
+
+            match_ids = [m.id for m in Match.query.filter_by(round_id=rnd.id).all()]
+            if match_ids:
+                Tip.query.filter(Tip.match_id.in_(match_ids)).delete(synchronize_session=False)
+                Match.query.filter(Match.id.in_(match_ids)).delete(synchronize_session=False)
+                purged_matches += len(match_ids)
+
+            # ExtraAnswer nemá round_id – mažeme přes ExtraQuestion
+            eq_ids = [eq.id for eq in ExtraQuestion.query.filter_by(round_id=rnd.id).all()]
+            if eq_ids:
+                ExtraAnswer.query.filter(
+                    ExtraAnswer.question_id.in_(eq_ids)
+                ).delete(synchronize_session=False)
+            ExtraQuestion.query.filter_by(round_id=rnd.id).delete(synchronize_session=False)
+
+            RoundUserScore.query.filter_by(round_id=rnd.id).delete(synchronize_session=False)
+            db.session.delete(rnd)
+            purged_rounds += 1
+
+        if purged_rounds or purged_matches:
+            db.session.commit()
+            print(f"🧹 Purged Chance Liga test data: rounds={purged_rounds}, matches={purged_matches}")
+    except Exception as e:
+        print(f"⚠️ purge_test_chance_liga_data failed: {e}")
+        db.session.rollback()
+
+
+# =========================================================
 # DB SEEDING
 # =========================================================
 
 def seed_defaults_if_empty() -> None:
     """Vytvoří výchozí data (Sport + admin user) pokud je DB prázdná."""
+    purge_test_chance_liga_data()
+
     if Sport.query.count() == 0:
         db.session.add(Sport(name="Fotbal"))
         db.session.add(Sport(name="Hokej"))
@@ -131,7 +187,6 @@ def seed_defaults_if_empty() -> None:
         db.session.commit()
         print(f"✅ Vytvořen výchozí admin účet: {OWNER_ADMIN_EMAIL}")
 
-    # Zajisti že admin/owner mají ověřený email
     try:
         admin_users = User.query.filter(
             User.is_admin == True,
@@ -150,28 +205,28 @@ def ensure_sqlite_schema() -> None:
     """Přidá případně chybějící sloupce (SQLite nepodporuje ALTER TABLE IF NOT EXISTS)."""
     from sqlalchemy import text
     migrations = [
-        ("users",   "verification_token",       "TEXT"),
-        ("users",   "verification_token_expiry", "DATETIME"),
-        ("users",   "email_verified",            "BOOLEAN DEFAULT 1"),
-        ("users",   "reset_token",               "TEXT"),
-        ("users",   "reset_token_expiry",        "DATETIME"),
-        ("users",   "role",                      "TEXT DEFAULT 'user'"),
-        ("users",   "first_name",                "TEXT"),
-        ("users",   "last_name",                 "TEXT"),
-        ("users",   "theme",                     "TEXT DEFAULT 'dark'"),
-        ("users",   "language",                  "TEXT DEFAULT 'cs'"),
-        ("teams",   "is_deleted",                "BOOLEAN DEFAULT 0"),
-        ("teams",   "group",                     "TEXT"),
-        ("teams",   "country_code",              "TEXT"),
-        ("matches", "is_deleted",                "BOOLEAN DEFAULT 0"),
-        ("matches", "start_time",                "DATETIME"),
-        ("rounds",  "tips_locked",               "BOOLEAN DEFAULT 0"),
-        ("rounds",  "extras_locked",             "BOOLEAN DEFAULT 0"),
-        ("rounds",  "tips_deadline",             "DATETIME"),
-        ("rounds",  "extras_deadline",           "DATETIME"),
-        ("rounds",  "is_active",                 "BOOLEAN DEFAULT 1"),
-        ("rounds",  "points_exact",              "INTEGER DEFAULT 3"),
-        ("rounds",  "points_winner",             "INTEGER DEFAULT 1"),
+        ("users",   "verification_token",        "TEXT"),
+        ("users",   "verification_token_expiry",  "DATETIME"),
+        ("users",   "email_verified",             "BOOLEAN DEFAULT 1"),
+        ("users",   "reset_token",                "TEXT"),
+        ("users",   "reset_token_expiry",         "DATETIME"),
+        ("users",   "role",                       "TEXT DEFAULT 'user'"),
+        ("users",   "first_name",                 "TEXT"),
+        ("users",   "last_name",                  "TEXT"),
+        ("users",   "theme",                      "TEXT DEFAULT 'dark'"),
+        ("users",   "language",                   "TEXT DEFAULT 'cs'"),
+        ("teams",   "is_deleted",                 "BOOLEAN DEFAULT 0"),
+        ("teams",   "group",                      "TEXT"),
+        ("teams",   "country_code",               "TEXT"),
+        ("matches", "is_deleted",                 "BOOLEAN DEFAULT 0"),
+        ("matches", "start_time",                 "DATETIME"),
+        ("rounds",  "tips_locked",                "BOOLEAN DEFAULT 0"),
+        ("rounds",  "extras_locked",              "BOOLEAN DEFAULT 0"),
+        ("rounds",  "tips_deadline",              "DATETIME"),
+        ("rounds",  "extras_deadline",            "DATETIME"),
+        ("rounds",  "is_active",                  "BOOLEAN DEFAULT 1"),
+        ("rounds",  "points_exact",               "INTEGER DEFAULT 3"),
+        ("rounds",  "points_winner",              "INTEGER DEFAULT 1"),
     ]
     with db.engine.connect() as conn:
         for table, col, col_type in migrations:
@@ -179,7 +234,7 @@ def ensure_sqlite_schema() -> None:
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
                 conn.commit()
             except Exception:
-                pass  # Sloupec už existuje – OK
+                pass
 
 
 # =========================================================
@@ -196,7 +251,6 @@ def _init_db_once(app: Flask) -> None:
     if os.path.exists(done_path):
         return
 
-    # Odstraň zastaralý zámek (starší než 10 minut)
     try:
         if os.path.exists(lock_path):
             if (datetime.utcnow().timestamp() - os.path.getmtime(lock_path)) > 600:
@@ -204,11 +258,10 @@ def _init_db_once(app: Flask) -> None:
     except Exception:
         pass
 
-    # Atomicky získej zámek
     try:
         fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     except FileExistsError:
-        return  # Jiný worker inicializuje
+        return
     except Exception:
         fd = None
 
@@ -219,12 +272,10 @@ def _init_db_once(app: Flask) -> None:
             except OperationalError as e:
                 if "already exists" not in str(e).lower():
                     raise
-
             try:
                 ensure_sqlite_schema()
             except Exception:
                 pass
-
             try:
                 seed_defaults_if_empty()
             except IntegrityError:
@@ -274,39 +325,30 @@ def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
     os.makedirs(app.instance_path, exist_ok=True)
 
-    # Bezpečnost
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
     app.config["SQLALCHEMY_DATABASE_URI"] = (
         "sqlite:///" + os.path.join(app.instance_path, "tipovacka.db")
     )
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    # Session
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-    app.config["SESSION_COOKIE_SECURE"] = True  # HTTPS na Koyeb
+    app.config["SESSION_COOKIE_SECURE"] = True
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=24)
 
-    # CSRF
     app.config["WTF_CSRF_ENABLED"] = True
     app.config["WTF_CSRF_TIME_LIMIT"] = None
     app.config["WTF_CSRF_SSL_STRICT"] = False
     app.config["WTF_CSRF_CHECK_DEFAULT"] = True
 
-    # Inicializace rozšíření
     db.init_app(app)
     login_manager.init_app(app)
     login_manager.login_view = "login"
     csrf.init_app(app)
 
-    # Routes
     register_all_routes(app)
-
-    # PWA fallbacky + aliasy
     ensure_pwa_routes(app)
     _install_route_aliases(app)
-
-    # DB init (jednou po startu)
     _init_db_once(app)
 
     return app
