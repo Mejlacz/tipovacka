@@ -8,7 +8,7 @@ import re
 from flask import request, flash, redirect, url_for, abort, session
 from flask_login import login_required
 
-from models import ExtraAnswer, ExtraQuestion, Match, Round, Team, TeamAlias, Tip, User
+from models import ExtraAnswer, ExtraQuestion, Match, Round, Sport, Team, TeamAlias, Tip, User
 from app_utils import admin_required, audit, dt_to_input_value, ensure_selected_round, parse_naive_datetime, render_page, set_selected_round_id
 from extensions import db
 
