@@ -1,19 +1,26 @@
 """
 app2.py
-Flask application factory – pouze konfigurace, inicializace a bootstrapping.
+Flask application factory – konfigurace, inicializace a bootstrapping.
 Všechny routes jsou v routes/ package.
+Sdílené konstanty (VAPID, ACHIEVEMENTS, emaily) jsou v config.py.
 """
 from __future__ import annotations
 import base64
-import json
 import os
 from datetime import datetime, timedelta
 from typing import Optional
 
 from flask import Flask, Response, jsonify, redirect, url_for
-from flask_login import current_user
 from sqlalchemy.exc import OperationalError, IntegrityError
 
+from config import (
+    OWNER_ADMIN_EMAIL,
+    SECRET_USER_EMAIL,
+    VAPID_PRIVATE_KEY,
+    VAPID_PUBLIC_KEY,
+    VAPID_CLAIMS,
+    ACHIEVEMENTS,
+)
 from extensions import db, login_manager, csrf
 from models import (
     User, Sport, Round, Team, TeamAlias, Match, Tip,
@@ -23,45 +30,6 @@ from models import (
 )
 from routes import register_all_routes
 
-# =========================================================
-# KONFIG – uprav jen tyhle položky (nebo nastav env vars)
-# =========================================================
-
-OWNER_ADMIN_EMAIL = os.environ.get("OWNER_ADMIN_EMAIL", "3049@email.cz")
-SECRET_USER_EMAIL = os.environ.get("SECRET_USER_EMAIL", "kubamartinec97@gmail.com")
-
-# VAPID klíče pro Web Push notifikace
-# V produkci přesunout do env variables!
-VAPID_PRIVATE_KEY = os.environ.get(
-    "VAPID_PRIVATE_KEY",
-    "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZzhjWVNJc2R4aDhXenMrSWgKd0N5THoyTk9ZQk1oK3BBbFhKNy9SWE0yYmZxaFJBTkNBQVR4M2NORjZ0Q215KzloVEtzekQ2bUxCK3RtREhlTwp1YTZBRHF5SFhYRnB4enk3bkJzNFk5dHFEUnVGN1Z0c3orKzFQdFRaanl0WnpkZlRodk1TWGNUZQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg"
-)
-VAPID_PUBLIC_KEY = os.environ.get(
-    "VAPID_PUBLIC_KEY",
-    "BPHdw0Xq0KbL72FMqzMPqYsH62YMd465roAOrIddcWnHPLucGzhj22oNG4XtW2zP77U-1NmPK1nN19OG8xJdxN4"
-)
-VAPID_CLAIMS = {"sub": "mailto:admin@tipovacka.cz"}
-
-# =========================================================
-# ACHIEVEMENTS (metadata – ikony, popisy, barvy)
-# =========================================================
-
-ACHIEVEMENTS = {
-    'first_tip':       {'name': 'První krev',             'icon': '🎯', 'description': 'Zadal jsi svůj první tip',                      'color': '#6ea8fe'},
-    'hattrick':        {'name': 'Hattrick',               'icon': '🔥', 'description': '3 přesné tipy po sobě',                         'color': '#ff6b6b'},
-    'perfect_5':       {'name': 'Pětka',                  'icon': '⭐', 'description': '5 přesných tipů po sobě',                       'color': '#ffc107'},
-    'sniper':          {'name': 'Sniper',                  'icon': '🎯', 'description': '10 přesných tipů po sobě',                      'color': '#ff4d6d'},
-    'perfect_round':   {'name': 'Perfekcionista',         'icon': '💎', 'description': 'Všechny tipy v kole přesné',                    'color': '#33d17a'},
-    'top_tipper':      {'name': 'Stratég',                'icon': '👑', 'description': 'Nejlepší tipér v kole',                         'color': '#ffd700'},
-    'full_attendance': {'name': 'Věrný fanoušek',         'icon': '💯', 'description': '100% účast – tipoval jsi všechny zápasy',       'color': '#33d17a'},
-    'comeback_king':   {'name': 'Comeback',               'icon': '📈', 'description': 'Posun o 3+ místa nahoru v žebříčku',            'color': '#26a269'},
-    'century':         {'name': 'Stovka',                 'icon': '💯', 'description': 'Získal jsi 100 bodů',                          'color': '#ffc107'},
-    'half_century':    {'name': 'Padesátka',              'icon': '5️⃣0️⃣', 'description': 'Získal jsi 50 bodů',                       'color': '#6ea8fe'},
-    'nostradamus':     {'name': 'Nostradamus',            'icon': '🔮', 'description': 'Tipoval jsi překvapení jako první (outsider)',   'color': '#a78bfa'},
-    'warrior':         {'name': 'Warrior',                'icon': '⚔️', 'description': 'Účast ve 3+ soutěžích',                        'color': '#f97316'},
-    'lucky_strike':    {'name': 'Štěstí přeje připraveným','icon': '🍀', 'description': 'Správný tip na zápas s kurzem 5:1+',           'color': '#10b981'},
-    'underdog':        {'name': 'Underdog',               'icon': '🐕', 'description': 'Top 3 s méně než 50% tipnutých zápasů',        'color': '#8b5cf6'},
-}
 
 # =========================================================
 # PWA FALLBACK ROUTES
@@ -182,37 +150,36 @@ def ensure_sqlite_schema() -> None:
     """Přidá případně chybějící sloupce (SQLite nepodporuje ALTER TABLE IF NOT EXISTS)."""
     from sqlalchemy import text
     migrations = [
-        ("users",    "verification_token",      "TEXT"),
-        ("users",    "verification_token_expiry","DATETIME"),
-        ("users",    "email_verified",           "BOOLEAN DEFAULT 1"),
-        ("users",    "reset_token",              "TEXT"),
-        ("users",    "reset_token_expiry",       "DATETIME"),
-        ("users",    "role",                     "TEXT DEFAULT 'user'"),
-        ("users",    "first_name",               "TEXT"),
-        ("users",    "last_name",                "TEXT"),
-        ("users",    "theme",                    "TEXT DEFAULT 'dark'"),
-        ("users",    "language",                 "TEXT DEFAULT 'cs'"),
-        ("teams",    "is_deleted",               "BOOLEAN DEFAULT 0"),
-        ("teams",    "group",                    "TEXT"),
-        ("teams",    "country_code",             "TEXT"),
-        ("matches",  "is_deleted",               "BOOLEAN DEFAULT 0"),
-        ("matches",  "start_time",               "DATETIME"),
-        ("rounds",   "tips_locked",              "BOOLEAN DEFAULT 0"),
-        ("rounds",   "extras_locked",            "BOOLEAN DEFAULT 0"),
-        ("rounds",   "tips_deadline",            "DATETIME"),
-        ("rounds",   "extras_deadline",          "DATETIME"),
-        ("rounds",   "is_active",                "BOOLEAN DEFAULT 1"),
-        ("rounds",   "points_exact",             "INTEGER DEFAULT 3"),
-        ("rounds",   "points_winner",            "INTEGER DEFAULT 1"),
+        ("users",   "verification_token",       "TEXT"),
+        ("users",   "verification_token_expiry", "DATETIME"),
+        ("users",   "email_verified",            "BOOLEAN DEFAULT 1"),
+        ("users",   "reset_token",               "TEXT"),
+        ("users",   "reset_token_expiry",        "DATETIME"),
+        ("users",   "role",                      "TEXT DEFAULT 'user'"),
+        ("users",   "first_name",                "TEXT"),
+        ("users",   "last_name",                 "TEXT"),
+        ("users",   "theme",                     "TEXT DEFAULT 'dark'"),
+        ("users",   "language",                  "TEXT DEFAULT 'cs'"),
+        ("teams",   "is_deleted",                "BOOLEAN DEFAULT 0"),
+        ("teams",   "group",                     "TEXT"),
+        ("teams",   "country_code",              "TEXT"),
+        ("matches", "is_deleted",                "BOOLEAN DEFAULT 0"),
+        ("matches", "start_time",                "DATETIME"),
+        ("rounds",  "tips_locked",               "BOOLEAN DEFAULT 0"),
+        ("rounds",  "extras_locked",             "BOOLEAN DEFAULT 0"),
+        ("rounds",  "tips_deadline",             "DATETIME"),
+        ("rounds",  "extras_deadline",           "DATETIME"),
+        ("rounds",  "is_active",                 "BOOLEAN DEFAULT 1"),
+        ("rounds",  "points_exact",              "INTEGER DEFAULT 3"),
+        ("rounds",  "points_winner",             "INTEGER DEFAULT 1"),
     ]
-    conn = db.engine.connect()
-    for table, col, col_type in migrations:
-        try:
-            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
-            conn.commit()
-        except Exception:
-            pass  # Sloupec už existuje – OK
-    conn.close()
+    with db.engine.connect() as conn:
+        for table, col, col_type in migrations:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                conn.commit()
+            except Exception:
+                pass  # Sloupec už existuje – OK
 
 
 # =========================================================
@@ -322,8 +289,8 @@ def create_app() -> Flask:
 
     # CSRF
     app.config["WTF_CSRF_ENABLED"] = True
-    app.config["WTF_CSRF_TIME_LIMIT"] = None     # token nevyprší
-    app.config["WTF_CSRF_SSL_STRICT"] = False    # za reverse proxy
+    app.config["WTF_CSRF_TIME_LIMIT"] = None
+    app.config["WTF_CSRF_SSL_STRICT"] = False
     app.config["WTF_CSRF_CHECK_DEFAULT"] = True
 
     # Inicializace rozšíření
