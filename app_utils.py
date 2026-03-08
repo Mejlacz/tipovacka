@@ -35,6 +35,7 @@ except ImportError:
 
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from config import ACHIEVEMENTS
 
 OWNER_ADMIN_EMAIL = os.environ.get("OWNER_ADMIN_EMAIL", "3049@email.cz")
 SECRET_USER_EMAIL = os.environ.get("SECRET_USER_EMAIL", "kubamartinec97@gmail.com")
