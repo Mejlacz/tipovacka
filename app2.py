@@ -143,10 +143,7 @@ from app_utils import (
     recompute_round_scores, get_cached_round_score,
     csv_response, binary_response,
 )
-from api_parsers import (
-    fetch_nhl_games, fetch_football_games,
-    fetch_thesportsdb_games, fetch_uefa_ucl_all_fixtures,
-    fetch_api_games, import_matches_from_api, import_results_from_api,
+
 )
 
 
