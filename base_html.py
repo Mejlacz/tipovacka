@@ -1207,7 +1207,6 @@ BASE_HTML = r"""
                   <a href="{{ url_for('admin_bulk_edit') }}">Bulk Edit</a>
                   <a href="{{ url_for('admin_undo') }}">Undo</a>
                   <a href="{{ url_for('admin_users') }}">Uživatelé</a>
-                  <a href="{{ url_for('admin_api_sources') }}">🔌 API Zdroje</a>
                   <a href="{{ url_for('admin_team_aliases') }}">🔁 Aliasy týmů</a>
                   <a href="{{ url_for('admin_backup') }}">💾 Záloha</a>
                   <a href="{{ url_for('admin_audit') }}">Historie</a>
@@ -1277,7 +1276,6 @@ BASE_HTML = r"""
                   <a href="{{ url_for('admin_bulk_edit') }}" onclick="closeMobileMenu()">Bulk Edit</a>
                   <a href="{{ url_for('admin_undo') }}" onclick="closeMobileMenu()">Undo</a>
                   <a href="{{ url_for('admin_users') }}" onclick="closeMobileMenu()">Uživatelé</a>
-                  <a href="{{ url_for('admin_api_sources') }}" onclick="closeMobileMenu()">🔌 API Zdroje</a>
                   <a href="{{ url_for('admin_backup') }}" onclick="closeMobileMenu()">💾 Záloha</a>
                   <a href="{{ url_for('admin_audit') }}" onclick="closeMobileMenu()">Historie</a>
                 </div>
