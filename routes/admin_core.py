@@ -3,7 +3,7 @@ routes/admin_core.py
 """
 
 import datetime
-import io
+from typing import Optional
 from io import BytesIO
 import os
 import csv
@@ -19,60 +19,6 @@ from flask_login import current_user, login_required
 from models import AuditLog, ExtraAnswer, ExtraQuestion, ImportSession, Match, Round, Team, Tip, UndoStack, User
 from app_utils import admin_required, audit, compute_leaderboard, create_undo_point, ensure_selected_round, perform_undo, render_page, send_email_with_attachment, send_results_notification
 from extensions import db
-
-try:
-    import pytesseract
-    from PIL import Image as PILImage
-    TESSERACT_AVAILABLE = True
-except ImportError:
-    pytesseract = None
-    PILImage = None
-    TESSERACT_AVAILABLE = False
-
-def extract_text_from_screenshot(image_data: bytes) -> Optional[str]:
-    """
-    Extract text from screenshot using Tesseract OCR (FREE)
-
-    Args:
-        image_data: Image file bytes (PNG, JPEG, etc)
-
-    Returns:
-        Extracted text or None if failed
-    """
-
-    if not TESSERACT_AVAILABLE:
-        print("❌ Tesseract not available")
-        return None
-
-    try:
-        # Open image
-        image = Image.open(io.BytesIO(image_data))
-
-        # Preprocessing for better OCR
-        # Convert to grayscale
-        image = image.convert('L')
-
-        # Optional: increase contrast
-        from PIL import ImageEnhance
-        enhancer = ImageEnhance.Contrast(image)
-        image = enhancer.enhance(2.0)
-
-        # Extract text
-        # Use custom config for better table recognition
-        custom_config = r'--oem 3 --psm 6'
-        text = pytesseract.image_to_string(image, lang='ces+eng', config=custom_config)
-
-        print(f"✅ OCR extracted {len(text)} characters")
-        print(f"📝 First 200 chars: {text[:200]}")
-
-        return text.strip()
-
-    except Exception as e:
-        print(f"❌ OCR error: {e}")
-        return None
-
-
-
 
 def register_admin_core(app):
     @app.route("/admin/dashboard")
