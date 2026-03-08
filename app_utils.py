@@ -1423,36 +1423,21 @@ from base_html import BASE_HTML  # noqa: E402
 from flask_wtf.csrf import generate_csrf  # noqa: E402 (uz importovano výše, ale bezpečné)
 
 
-def render_page(
-    content_html: str,
-    ctx=None,
-    selected=None,
-):
+def render_page(content_html: str, **ctx):
     """Obalí content_html do BASE_HTML šablony.
-
-    Args:
-        content_html: Jinja2 string s HTML obsahem stránky.
-        ctx:          Slovník proměnných pro šablonu (default None → {}).
-        selected:     ID aktuálně zvolené soutěže (override).
-
-    Returns:
-        Hotový HTML string pro Flask response.
+    Volej jako: render_page(html, r=round, users=users, ...)
     """
-    from flask import render_template_string  # lokální import – vyhne se circular
+    from flask import render_template_string
 
-    if ctx is None:
-        ctx = {}
-
+    selected = None
     rounds = []
     if current_user.is_authenticated:
-        rounds = get_rounds_for_switch(selected)
-        ensure_selected_round()
+        rounds = get_rounds_for_switch()
+        selected = ensure_selected_round()
 
-    # Odstraň klíče které přidáváme sami – zabrání KeyError / duplicate
     ctx.pop("rounds_for_switch", None)
     ctx.pop("selected_round_id_for_switch", None)
-    ctx.pop("csrf_token", None)
-    ctx["csrf_token"] = generate_csrf()
+    ctx["csrf_token"] = generate_csrf
 
     inner = render_template_string(
         content_html,
