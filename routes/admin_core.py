@@ -293,13 +293,6 @@ def register_admin_core(app):
       <div class="admin-card-desc">Správa userů</div>
     </a>
 
-    <a href="{{ url_for('admin_api_sources') }}" class="admin-card">
-      <div class="admin-card-header">
-        <div class="admin-card-icon">🔌</div>
-        <div class="admin-card-title">API Zdroje</div>
-      </div>
-      <div class="admin-card-desc">Fotbal & hokej API</div>
-    </a>
 
     <a href="{{ url_for('admin_smart_import') }}" class="admin-card">
       <div class="admin-card-header">
