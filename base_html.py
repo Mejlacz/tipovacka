@@ -1,7 +1,16 @@
 """
 base_html.py
-BASE_HTML šablona – jeden centrální Jinja2 string pro celou aplikaci.
+Centralni Jinja2 sablona pro celou aplikaci + render_page() helper.
+Importuj takto:  from base_html import render_page
 """
+from __future__ import annotations
+from typing import Any, Dict, Optional
+
+from flask import render_template_string
+from flask_login import current_user
+from flask_wtf.csrf import generate_csrf
+
+from app_utils import get_rounds_for_switch, ensure_selected_round
 
 BASE_HTML = r"""
 <!doctype html>
@@ -1964,3 +1973,48 @@ BASE_HTML = r"""
 </body>
 </html>
 """
+
+
+def render_page(
+    content_html: str,
+    ctx: Optional[Dict[str, Any]] = None,
+    selected: Optional[int] = None,
+) -> str:
+    """Obali content_html do BASE_HTML sablony.
+
+    Args:
+        content_html: Jinja2 string s obsahem stranky.
+        ctx:          Slovnik promennych pro sablonu.
+        selected:     ID aktualne zvolene soute (override).
+
+    Returns:
+        Hotovy HTML string pro Flask response.
+    """
+    if ctx is None:
+        ctx = {}
+
+    rounds: list = []
+    if current_user.is_authenticated:
+        rounds = get_rounds_for_switch(selected)
+        ensure_selected_round()
+
+    # Odstran klice pridavane interně – zamezi konfliktu pri **ctx
+    ctx.pop("rounds_for_switch", None)
+    ctx.pop("selected_round_id_for_switch", None)
+    ctx.pop("csrf_token", None)
+
+    ctx["csrf_token"] = generate_csrf()
+
+    inner = render_template_string(
+        content_html,
+        rounds_for_switch=rounds,
+        selected_round_id_for_switch=selected,
+        **ctx,
+    )
+    return render_template_string(
+        BASE_HTML,
+        content=inner,
+        rounds_for_switch=rounds,
+        selected_round_id_for_switch=selected,
+        **ctx,
+    )
