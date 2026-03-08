@@ -1369,3 +1369,58 @@ def binary_response(filename_ascii: str, content: bytes, mimetype: str) -> Respo
     resp = Response(content, mimetype=mimetype)
     resp.headers["Content-Disposition"] = f'attachment; filename="{filename_ascii}"'
     return resp
+
+
+# =========================================================
+# render_page  –  centrální helper pro všechny route soubory
+# BASE_HTML importujeme tady, aby base_html.py nemohl
+# importovat zpět z app_utils → žádný circular import.
+# =========================================================
+from base_html import BASE_HTML  # noqa: E402
+from flask_wtf.csrf import generate_csrf  # noqa: E402 (uz importovano výše, ale bezpečné)
+
+
+def render_page(
+    content_html: str,
+    ctx=None,
+    selected=None,
+):
+    """Obalí content_html do BASE_HTML šablony.
+
+    Args:
+        content_html: Jinja2 string s HTML obsahem stránky.
+        ctx:          Slovník proměnných pro šablonu (default None → {}).
+        selected:     ID aktuálně zvolené soutěže (override).
+
+    Returns:
+        Hotový HTML string pro Flask response.
+    """
+    from flask import render_template_string  # lokální import – vyhne se circular
+
+    if ctx is None:
+        ctx = {}
+
+    rounds = []
+    if current_user.is_authenticated:
+        rounds = get_rounds_for_switch(selected)
+        ensure_selected_round()
+
+    # Odstraň klíče které přidáváme sami – zabrání KeyError / duplicate
+    ctx.pop("rounds_for_switch", None)
+    ctx.pop("selected_round_id_for_switch", None)
+    ctx.pop("csrf_token", None)
+    ctx["csrf_token"] = generate_csrf()
+
+    inner = render_template_string(
+        content_html,
+        rounds_for_switch=rounds,
+        selected_round_id_for_switch=selected,
+        **ctx,
+    )
+    return render_template_string(
+        BASE_HTML,
+        content=inner,
+        rounds_for_switch=rounds,
+        selected_round_id_for_switch=selected,
+        **ctx,
+    )
