@@ -1126,7 +1126,7 @@ def set_selected_round_id(round_id: int) -> None:
 def get_rounds_for_switch():
     if not current_user.is_authenticated:
         return []
-    return Round.query.order_by(Round.is_active.desc(), Round.id.desc()).all()
+    return Round.query.filter_by(is_archived=False).order_by(Round.is_active.desc(), Round.id.desc()).all()
 
 def ensure_selected_round() -> Optional[int]:
     rounds = get_rounds_for_switch()
