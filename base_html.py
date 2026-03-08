@@ -1203,6 +1203,7 @@ BASE_HTML = r"""
                   <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
                   <a href="{{ url_for('admin_rounds') }}">Soutěže</a>
                   <a href="{{ url_for('admin_import') }}">Import</a>
+        <a href="{{ url_for('admin_smart_import') }}">🤖 Smart Import</a>
                   <a href="{{ url_for('admin_export_hub') }}">Export</a>
                   <a href="{{ url_for('admin_bulk_edit') }}">Bulk Edit</a>
                   <a href="{{ url_for('admin_undo') }}">Undo</a>
@@ -1272,6 +1273,7 @@ BASE_HTML = r"""
                   <a href="{{ url_for('admin_dashboard') }}" onclick="closeMobileMenu()">Dashboard</a>
                   <a href="{{ url_for('admin_rounds') }}" onclick="closeMobileMenu()">Soutěže</a>
                   <a href="{{ url_for('admin_import') }}" onclick="closeMobileMenu()">Import</a>
+        <a href="{{ url_for('admin_smart_import') }}" onclick="closeMobileMenu()">🤖 Smart Import</a>
                   <a href="{{ url_for('admin_export_hub') }}" onclick="closeMobileMenu()">Export</a>
                   <a href="{{ url_for('admin_bulk_edit') }}" onclick="closeMobileMenu()">Bulk Edit</a>
                   <a href="{{ url_for('admin_undo') }}" onclick="closeMobileMenu()">Undo</a>
