@@ -3,6 +3,7 @@ routes/admin_core.py
 """
 
 import datetime
+import io
 from io import BytesIO
 import os
 import csv
@@ -19,15 +20,13 @@ from models import AuditLog, ExtraAnswer, ExtraQuestion, ImportSession, Match, R
 from app_utils import admin_required, audit, compute_leaderboard, create_undo_point, ensure_selected_round, perform_undo, render_page, send_email_with_attachment, send_results_notification
 from extensions import db
 
-from typing import Optional
-
 try:
     import pytesseract
-    from PIL import Image
+    from PIL import Image as PILImage
     TESSERACT_AVAILABLE = True
 except ImportError:
     pytesseract = None
-    Image = None
+    PILImage = None
     TESSERACT_AVAILABLE = False
 
 def extract_text_from_screenshot(image_data: bytes) -> Optional[str]:
@@ -71,6 +70,8 @@ def extract_text_from_screenshot(image_data: bytes) -> Optional[str]:
     except Exception as e:
         print(f"❌ OCR error: {e}")
         return None
+
+
 
 
 def register_admin_core(app):
