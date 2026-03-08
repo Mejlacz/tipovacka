@@ -9,8 +9,9 @@ from .admin_users  import register_admin_users
 from .admin_rounds import register_admin_rounds
 from .admin_core   import register_admin_core
 from .admin_import import register_admin_import
+from .admin_api    import register_admin_api
+from .pwa          import register_pwa
 from .errors       import register_errors
-# Odstraněno: admin_api (API fetchery smazány), pwa (vypnuto)
 
 
 def register_all_routes(app):
@@ -22,4 +23,6 @@ def register_all_routes(app):
     register_admin_rounds(app)
     register_admin_core(app)
     register_admin_import(app)
+    register_admin_api(app)
+    register_pwa(app)
     register_errors(app)
