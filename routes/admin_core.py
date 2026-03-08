@@ -3,7 +3,6 @@ routes/admin_core.py
 """
 
 import datetime
-from typing import Optional
 from io import BytesIO
 import os
 import csv
@@ -17,7 +16,7 @@ from flask import request, flash, redirect, url_for, send_file, session, Respons
 from flask_login import current_user, login_required
 
 from models import AuditLog, ExtraAnswer, ExtraQuestion, ImportSession, Match, Round, Team, Tip, UndoStack, User
-from app_utils import admin_required, audit, compute_leaderboard, create_undo_point, ensure_selected_round, perform_undo, render_page, send_email_with_attachment, send_results_notification
+from app_utils import admin_required, audit, compute_leaderboard, create_undo_point, ensure_selected_round, perform_undo, render_page, send_email_with_attachment, send_results_notification, extract_text_from_screenshot
 from extensions import db
 
 def register_admin_core(app):
