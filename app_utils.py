@@ -1371,6 +1371,49 @@ def binary_response(filename_ascii: str, content: bytes, mimetype: str) -> Respo
     return resp
 
 
+
+def compute_leaderboard(round_id: int) -> list:
+    """
+    Vypočítá žebříček pro danou soutěž.
+    Vrací list dictů: rank, username, total_points, exact, diff, tend, wrong
+    """
+    matches = Match.query.filter_by(round_id=round_id, is_deleted=False).filter(
+        Match.home_score != None, Match.away_score != None
+    ).all()
+    users = User.query.order_by(User.username.asc()).all()
+    result = []
+    for u in users:
+        tips = Tip.query.filter_by(user_id=u.id).filter(
+            Tip.match_id.in_([m.id for m in matches])
+        ).all() if matches else []
+        if not tips:
+            continue
+        tip_map = {t.match_id: t for t in tips}
+        total = exact = diff = tend = wrong = 0
+        for m in matches:
+            t = tip_map.get(m.id)
+            if not t:
+                continue
+            pts = calc_points_for_tip(m, t)
+            total += pts
+            if pts == 3:
+                exact += 1
+            elif pts == 2:
+                diff += 1
+            elif pts == 1:
+                tend += 1
+            else:
+                wrong += 1
+        result.append({
+            "user_id": u.id, "username": u.display_name,
+            "total_points": total, "exact": exact,
+            "diff": diff, "tend": tend, "wrong": wrong,
+        })
+    result.sort(key=lambda x: (-x["total_points"], -x["exact"], x["username"].lower()))
+    for i, entry in enumerate(result, 1):
+        entry["rank"] = i
+    return result
+
 # =========================================================
 # render_page  –  centrální helper pro všechny route soubory
 # BASE_HTML importujeme tady, aby base_html.py nemohl
