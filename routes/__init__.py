@@ -23,4 +23,4 @@ def register_all_routes(app):
     register_admin_core(app)
     register_admin_import(app)
     register_pwa(app)
-    register_errors(app))
+    register_errors(app)
