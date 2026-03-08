@@ -1424,6 +1424,60 @@ from base_html import BASE_HTML  # noqa: E402
 from flask_wtf.csrf import generate_csrf  # noqa: E402 (uz importovano výše, ale bezpečné)
 
 
+
+try:
+    import pytesseract
+    from PIL import Image as PILImage
+    TESSERACT_AVAILABLE = True
+except ImportError:
+    pytesseract = None
+    PILImage = None
+    TESSERACT_AVAILABLE = False
+
+def extract_text_from_screenshot(image_data: bytes) -> Optional[str]:
+    """
+    Extract text from screenshot using Tesseract OCR (FREE)
+
+    Args:
+        image_data: Image file bytes (PNG, JPEG, etc)
+
+    Returns:
+        Extracted text or None if failed
+    """
+
+    if not TESSERACT_AVAILABLE:
+        print("❌ Tesseract not available")
+        return None
+
+    try:
+        # Open image
+        image = Image.open(io.BytesIO(image_data))
+
+        # Preprocessing for better OCR
+        # Convert to grayscale
+        image = image.convert('L')
+
+        # Optional: increase contrast
+        from PIL import ImageEnhance
+        enhancer = ImageEnhance.Contrast(image)
+        image = enhancer.enhance(2.0)
+
+        # Extract text
+        # Use custom config for better table recognition
+        custom_config = r'--oem 3 --psm 6'
+        text = pytesseract.image_to_string(image, lang='ces+eng', config=custom_config)
+
+        print(f"✅ OCR extracted {len(text)} characters")
+        print(f"📝 First 200 chars: {text[:200]}")
+
+        return text.strip()
+
+    except Exception as e:
+        print(f"❌ OCR error: {e}")
+        return None
+
+
+
 def render_page(content_html: str, **ctx):
     """Obalí content_html do BASE_HTML šablony.
     Volej jako: render_page(html, r=round, users=users, ...)
