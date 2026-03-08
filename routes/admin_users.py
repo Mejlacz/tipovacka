@@ -9,7 +9,6 @@ import csv
 import re
 import pickle
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple
 
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font

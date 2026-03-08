@@ -10,7 +10,7 @@ from flask_login import current_user, login_required
 
 from models import PushSubscription, Tip, User
 from app_utils import get_notification_preferences, render_page, send_push_notification
-from extensions import db, csrf
+from extensions import db
 
 def register_pwa(app):
     @app.route("/manifest.json")

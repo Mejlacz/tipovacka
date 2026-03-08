@@ -10,7 +10,7 @@ from flask_login import current_user, login_required
 
 from models import APIImportLog, APISource, MatchAPIMapping, Round, Tip
 from app_utils import admin_required, audit, render_page
-from api_parsers.py import fetch_api_games, import_matches_from_api, import_results_from_api
+from api_parsers import fetch_api_games, import_matches_from_api, import_results_from_api
 from extensions import db
 
 def register_admin_api(app):
