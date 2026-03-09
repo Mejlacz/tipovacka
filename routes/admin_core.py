@@ -10,7 +10,7 @@ import json
 import tempfile
 import zipfile
 from io import BytesIO
-from typing import Optional
+from typing import Dict, List, Optional
 
 try:
     import pytesseract
@@ -51,6 +51,85 @@ from flask_login import current_user, login_required
 from models import AuditLog, ExtraAnswer, ExtraQuestion, ImportSession, Match, Round, Team, Tip, UndoStack, User
 from app_utils import admin_required, audit, compute_leaderboard, create_undo_point, ensure_selected_round, perform_undo, render_page, send_email_with_attachment, send_results_notification
 from extensions import db
+
+
+def smart_parse_matches(text: str, round_id: int = None) -> List[Dict]:
+    """
+    🤖 ULTRA SMART PARSER V2 - Better whitespace handling + OCR cleanup
+
+    Podporované formáty:
+    - Table format: "27. 2. 2026DuklaSlavia18:00" 
+    - With spaces: "27. 2. 2026 Sparta - Slavia 18:00"
+    - Date + time first: "27. 2. 20:00 Sparta vs Slavia"
+    - CSV, Fortuna, UEFA, etc.
+    - OCR from screenshots (with cleanup)
+
+    Improvements:
+    - Skip non-match lines (headers like "24. kolo")
+    - Auto year-fill for partial dates
+    - Better team splitting
+    - OCR artifact cleanup
+    """
+
+    # TRY 1: Multi-line app format (with -- separators)
+    if '--' in text:
+        print("🎯 Detected multi-line app format")
+        matches = _parse_multiline_app_format(text)
+        if matches:
+            print(f"✅ Multi-line parser: Found {len(matches)} matches")
+            # Convert datetime to ISO
+            for match in matches:
+                if 'start_time' in match and isinstance(match['start_time'], datetime):
+                    match['start_time'] = match['start_time'].isoformat()
+            return matches
+
+    # Step 1: Clean OCR artifacts (vice>, |, extra whitespace)
+    text = _clean_ocr_artifacts(text)
+
+    # TRY 0: Screenshot multi-line OCR format (datetime / team1 / team2)
+    ocr_multiline = _parse_multiline_ocr_format(text)
+    if ocr_multiline:
+        print(f"✅ OCR multiline parser: Nalezeno {len(ocr_multiline)} zápasů")
+        return ocr_multiline
+
+    # Step 2: Handle table copy/paste (all lines joined)
+    text = _split_joined_lines(text)
+
+    matches = []
+    lines = text.strip().split('\n')
+
+    print(f"🤖 Smart Parser V2: Zpracovávám {len(lines)} řádků")
+
+    for line_num, line in enumerate(lines, 1):
+        # Don't normalize whitespace yet - some formats need it
+        line_raw = line.strip()
+
+        if not line_raw or len(line_raw) < 5:
+            continue
+
+        # Skip lines that are obviously not matches
+        if line_raw.lower() in ['kolo', 'round', 'zápasy', 'matches']:
+            print(f"⏭️ Přeskakuji header: {line_raw}")
+            continue
+        if re.match(r'^\d+\.\s*kolo', line_raw, re.I):
+            print(f"⏭️ Přeskakuji kolo header: {line_raw}")
+            continue
+        if re.match(r'česko|chance liga|jme\s|bude se hrát', line_raw.lower()):
+            print(f"⏭️ Přeskakuji soutěž header: {line_raw}")
+            continue
+
+        match_data = _parse_single_line(line_raw, line_num)
+        if match_data:
+            # Convert datetime to ISO string for JSON
+            if 'start_time' in match_data and match_data['start_time']:
+                if isinstance(match_data['start_time'], datetime):
+                    match_data['start_time'] = match_data['start_time'].isoformat()
+
+            matches.append(match_data)
+
+    print(f"✅ Smart Parser V2: Nalezeno {len(matches)} zápasů")
+    return matches
+
 
 def register_admin_core(app):
     @app.route("/admin/dashboard")
