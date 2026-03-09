@@ -53,6 +53,335 @@ from app_utils import admin_required, audit, compute_leaderboard, create_undo_po
 from extensions import db
 
 
+
+
+def _split_joined_lines(text: str) -> str:
+    """
+    CRITICAL FIX: Table copy/paste joins all lines
+
+    New strategy: Extract complete match patterns
+    Pattern: DD. MM. YYYY + text + time/score (N:N or NN:NN)
+    """
+
+    # Skip if already properly formatted
+    lines = text.split('\n')
+    if len(lines) > 3:
+        return text
+
+    # Rejoin text
+    text_joined = ' '.join(lines)
+
+    # Pattern for complete match:
+    # Date + any text + final number:number
+    # Use non-greedy match and lookahead
+    pattern = r'(\d{1,2}\.\s*\d{1,2}\.\s*\d{4}.*?\d{1,2}:\d{1,2})(?=\d{1,2}\.\s*\d{1,2}\.\s*\d{4}|$)'
+
+    matches = re.findall(pattern, text_joined)
+
+    if len(matches) >= 2:
+        # Add any header before first match
+        parts = []
+        first_match_pos = text_joined.find(matches[0])
+        if first_match_pos > 0:
+            header = text_joined[:first_match_pos].strip()
+            if header:
+                parts.append(header)
+
+        # Add all matches
+        for match in matches:
+            parts.append(match.strip())
+
+        if len(parts) > 1:
+            result = '\n'.join(parts)
+            print(f"🔧 Extracted {len(parts)} lines from joined input")
+            return result
+
+    return text
+
+
+def _clean_ocr_artifacts(text: str) -> str:
+    """
+    Clean up OCR artifacts from screenshot text
+
+    OCR often adds extra characters like:
+    - "vice >" or "více>" (from web UI buttons)
+    - "|" pipes
+    - Extra whitespace
+    - Weird unicode characters
+
+    Returns cleaned text ready for parsing
+    """
+    lines = text.strip().split('\n')
+    cleaned_lines = []
+
+    for line in lines:
+        # Remove common OCR artifacts
+        # Remove "vice >", "více>", "vic>", "víc>" and similar
+        line = re.sub(r'\s*v[ií]ce?\s*>?\s*', ' ', line, flags=re.IGNORECASE)
+
+        # Remove pipe symbols (often from table borders)
+        line = re.sub(r'\s*\|\s*', ' ', line)
+
+        # Remove extra whitespace between words (but keep spaces)
+        line = re.sub(r'\s+', ' ', line)
+
+        # Remove leading/trailing whitespace
+        # Fix OCR misreading 0 as 'o'/'O' at end of line (trailing score)
+        line = re.sub(r' [oO]$', ' 0', line)
+
+        line = line.strip()
+
+        if line:
+            cleaned_lines.append(line)
+
+    result = '\n'.join(cleaned_lines)
+    print(f"🧹 OCR cleanup: {len(lines)} lines → {len(cleaned_lines)} cleaned lines")
+    return result
+
+
+def _parse_multiline_app_format(text: str) -> List[Dict]:
+    """
+    Parse multi-line format from app/website:
+
+    07.03. 15:00
+    Bohemians
+    Slovan Liberec
+    --
+    """
+    matches = []
+    blocks = text.split('--')
+    current_year = 2026
+
+    for block in blocks:
+        lines = [line.strip() for line in block.strip().split('\n') if line.strip()]
+
+        if len(lines) < 3:
+            continue
+
+        # Skip "25. kolo" headers
+        if lines[0].lower().endswith('kolo'):
+            lines = lines[1:]
+
+        if len(lines) < 3:
+            continue
+
+        datetime_line = lines[0]
+        home_team = lines[1]
+        away_team = lines[2]
+
+        # Parse "07.03. 15:00"
+        match = re.match(r'(\d{2})\.(\d{2})\.\s+(\d{1,2}):(\d{2})', datetime_line)
+        if not match:
+            continue
+
+        day = int(match.group(1))
+        month = int(match.group(2))
+        hour = int(match.group(3))
+        minute = int(match.group(4))
+
+        try:
+            dt = datetime(current_year, month, day, hour, minute)
+            matches.append({
+                'home_team': home_team.strip(),
+                'away_team': away_team.strip(),
+                'start_time': dt,
+            })
+        except ValueError:
+            continue
+
+    return matches
+
+
+def _parse_multiline_ocr_format(text: str) -> List[Dict]:
+    """
+    Parser pro OCR screenshot z mobilní appky Fortuny/iSport.
+    OCR vrací řádky s prefixovými ikonami, vzor je:
+      (© Bohemians :      <- tým1
+      úz 07.03. 15:00     <- datum+čas
+      @ Slovan Liberec -  <- tým2
+      (© Slovácko -       <- tým1
+      k 07.03.15:00       <- datum+čas
+      ...
+    """
+    import re
+    from datetime import datetime
+
+    current_year = datetime.now().year
+
+    # Regex na datum+čas: "07.03. 15:00" nebo "07.03.15:00" nebo "7.3. 15:00"
+    dt_re = re.compile(r'(\d{1,2})\.(\d{1,2})\.?\s*(\d{1,2}):(\d{2})')
+    # Regex na samotné datum bez času: "25.KoLo", "25. kolo" -> skip
+    kolo_re = re.compile(r'^\d+\.\s*kolo', re.I)
+    # Junk header patterns
+    skip_re = re.compile(
+        r'^(bude se hrát|česko|chance liga|jme\s|\d+\.\s*kolo)',
+        re.I
+    )
+
+    def strip_prefix(line):
+        """Odstraní OCR prefix ikony na začátku řádku, zachová jméno týmu začínající velkým písmenem."""
+        # Odstraní vše před prvním velkým písmenem (začátek jména týmu)
+        m = re.search(r'[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]', line)
+        if m:
+            return line[m.start():].strip()
+        return line.strip()
+
+    def clean_team(name):
+        """Odstraní trailing ' -', ' :', ' =' a podobné artefakty."""
+        return re.sub(r'\s*[-:=]\s*$', '', name).strip()
+
+    def parse_dt(line):
+        """Vrátí datetime pokud řádek obsahuje datum+čas, jinak None."""
+        m = dt_re.search(line)
+        if m:
+            try:
+                return datetime(current_year, int(m.group(2)), int(m.group(1)),
+                                int(m.group(3)), int(m.group(4)))
+            except Exception:
+                return None
+        return None
+
+    lines = text.strip().split('\n')
+
+    # Vyčisti a oklasifikuj každý řádek
+    # Každý item: ('dt', datetime) | ('team', str, score_or_None)
+    classified = []
+    score_re = re.compile(r'\s+(\d{1,2})\s*$')  # trailing score digit(s)
+    for raw in lines:
+        raw = raw.strip()
+        if not raw or len(raw) < 3:
+            continue
+        if skip_re.match(raw.lower()):
+            continue
+        if kolo_re.match(raw):
+            continue
+
+        dt = parse_dt(raw)
+        if dt:
+            classified.append(('dt', dt, None))
+        else:
+            # Check for trailing score: '(© Sigma Olomouc 1' -> team='Sigma Olomouc', score=1
+            score_match = score_re.search(raw)
+            score = int(score_match.group(1)) if score_match else None
+            line_no_score = raw[:score_match.start()] if score_match else raw
+            clean = clean_team(strip_prefix(line_no_score))
+            if clean and len(clean) >= 3:
+                classified.append(('team', clean, score))
+
+    # Nyní hledáme vzory: team, dt, team  NEBO  dt, team, team
+    results = []
+    i = 0
+    while i < len(classified):
+        # Vzor 1: team1(+score), dt, team2(+score)  (Fortuna/iSport appka s výsledky)
+        if (i + 2 < len(classified)
+                and classified[i][0] == 'team'
+                and classified[i+1][0] == 'dt'
+                and classified[i+2][0] == 'team'):
+            home = classified[i][1]
+            home_score = classified[i][2]
+            dt = classified[i+1][1]
+            away = classified[i+2][1]
+            away_score = classified[i+2][2]
+            entry = {
+                'home_team': home,
+                'away_team': away,
+                'start_time': dt.isoformat(),
+            }
+            if home_score is not None and away_score is not None:
+                entry['home_score'] = home_score
+                entry['away_score'] = away_score
+            results.append(entry)
+            i += 3
+            continue
+        # Vzor 2: dt, team1(+score), team2(+score)  (čistý screenshot)
+        if (i + 2 < len(classified)
+                and classified[i][0] == 'dt'
+                and classified[i+1][0] == 'team'
+                and classified[i+2][0] == 'team'):
+            dt = classified[i][1]
+            home = classified[i+1][1]
+            home_score = classified[i+1][2]
+            away = classified[i+2][1]
+            away_score = classified[i+2][2]
+            entry = {
+                'home_team': home,
+                'away_team': away,
+                'start_time': dt.isoformat(),
+            }
+            if home_score is not None and away_score is not None:
+                entry['home_score'] = home_score
+                entry['away_score'] = away_score
+            results.append(entry)
+            i += 3
+            continue
+        i += 1
+
+    return results
+
+
+def _parse_single_line(line: str, line_num: int = 0) -> Optional[Dict]:
+    """
+    IMPROVED: Better handling of different formats
+
+    Priority:
+    1. Table format (no spaces): 27. 2. 2026DuklaSlavia18:00
+    2. Date with spaces: 27. 2. 2026 Dukla - Slavia 18:00
+    3. Other formats
+    """
+
+    # TRY 1: Table format FIRST (before whitespace normalization!)
+    result = _parse_table_format(line)
+    if result:
+        return result
+
+    # TRY 2: Now normalize whitespace for other formats
+    line_normalized = re.sub(r'\s+', ' ', line.replace('\t', ' ')).strip()
+    parts = line_normalized.split()  # initialize here to avoid UnboundLocalError
+
+    # TRY 3: Compact date format (OCR): "7.3.2026 Team1 Team2 15:00"
+    if len(parts) >= 4 and _is_date(parts[0]):
+        result = _parse_compact_date_format(line_normalized, parts)
+        if result:
+            return result
+
+    # TRY 4: Date at start with spaces
+    # parts already assigned above
+
+    # "27. 2. 2026 Dukla - Slavia 18:00"
+    if len(parts) >= 3 and _is_date(' '.join(parts[:3])):
+        return _parse_date_first_format(line_normalized, parts)
+
+    # "27. 2. 20:00 Sparta vs Slavia"
+    if len(parts) >= 4:
+        potential_date = ' '.join(parts[:2])
+        potential_time = parts[2]
+
+        if _is_date(potential_date) and re.match(r'^\d{1,2}:\d{2}$', potential_time):
+            return _parse_date_time_first(line_normalized, parts)
+
+    # TRY 5: Other parsers
+    parsers = [
+        _parse_fortuna_style,
+        _parse_uefa_style,
+        _parse_csv_style,
+        _parse_pipe_style,
+        _parse_score_style,
+        _parse_vs_style,
+        _parse_dash_style,
+    ]
+
+    for parser in parsers:
+        try:
+            result = parser(line_normalized)
+            if result:
+                return result
+        except Exception:
+            continue
+
+    print(f"⚠️ Nepodařilo se parsovat řádek {line_num}: {line[:50]}")
+    return None
+
+
 def smart_parse_matches(text: str, round_id: int = None) -> List[Dict]:
     """
     🤖 ULTRA SMART PARSER V2 - Better whitespace handling + OCR cleanup
