@@ -4,13 +4,13 @@ routes/admin_core.py
 
 import datetime
 import io
-from io import BytesIO
-from typing import Optional
 import os
 import csv
 import json
 import tempfile
 import zipfile
+from io import BytesIO
+from typing import Optional
 
 try:
     import pytesseract
@@ -21,48 +21,36 @@ except ImportError:
     PILImage = None
     TESSERACT_AVAILABLE = False
 
+
 def extract_text_from_screenshot(image_data: bytes) -> Optional[str]:
-    """
-    Extract text from screenshot using Tesseract OCR (FREE)
-
-    Args:
-        image_data: Image file bytes (PNG, JPEG, etc)
-
-    Returns:
-        Extracted text or None if failed
-    """
-
-    if not TESSERACT_AVAILABLE:
-        print("❌ Tesseract not available")
-        return None
-
+    """OCR z clipboard screenshotu."""
     try:
-        # Open image
-        image = PILImage.open(io.BytesIO(image_data))
-
-        # Preprocessing for better OCR
-        # Convert to grayscale
-        image = image.convert('L')
-
-        # Optional: increase contrast
-        from PIL import ImageEnhance
-        enhancer = ImageEnhance.Contrast(image)
-        image = enhancer.enhance(2.0)
-
-        # Extract text
-        # Use custom config for better table recognition
-        custom_config = r'--oem 3 --psm 6'
-        text = pytesseract.image_to_string(image, lang='ces+eng', config=custom_config)
-
-        print(f"✅ OCR extracted {len(text)} characters")
-        print(f"📝 First 200 chars: {text[:200]}")
-
-        return text.strip()
-
+        import pytesseract as _tess
+        from PIL import Image as _Img, ImageEnhance
+        image = _Img.open(io.BytesIO(image_data))
+        try:
+            enhancer = ImageEnhance.Contrast(image)
+            image = enhancer.enhance(2.0)
+        except Exception:
+            pass
+        text = _tess.image_to_string(image, lang='ces+eng')
+        return text.strip() if text.strip() else None
+    except ImportError:
+        print("⚠️ pytesseract/PIL není nainstalováno")
+        return None
     except Exception as e:
         print(f"❌ OCR error: {e}")
         return None
 
+
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font
+from flask import current_app, request, flash, redirect, url_for, send_file, session, Response, render_template_string
+from flask_login import current_user, login_required
+
+from models import AuditLog, ExtraAnswer, ExtraQuestion, ImportSession, Match, Round, Team, Tip, UndoStack, User
+from app_utils import admin_required, audit, compute_leaderboard, create_undo_point, ensure_selected_round, perform_undo, render_page, send_email_with_attachment, send_results_notification
+from extensions import db
 
 def register_admin_core(app):
     @app.route("/admin/dashboard")
@@ -338,7 +326,7 @@ def register_admin_core(app):
       <div class="admin-card-desc">Správa userů</div>
     </a>
 
-    <a href="{{ url_for('admin_api_sources') }}" class="admin-card">
+    <a href="{{ url_for('admin_api_sources') if 'admin_api_sources' in current_app.view_functions else '#' }}" class="admin-card">
       <div class="admin-card-header">
         <div class="admin-card-icon">🔌</div>
         <div class="admin-card-title">API Zdroje</div>
@@ -3345,3 +3333,4 @@ def register_admin_core(app):
     </body>
     </html>
     """
+
