@@ -1298,6 +1298,113 @@ def _parse_fragmented_column_ocr(text: str) -> List[Dict]:
     return matches
 
 
+def normalize_team_name(name: str, round_id: int = None) -> str:
+    """
+    🧠 Inteligentní normalizace jména týmu
+
+    - Opraví běžné překlepy
+    - Doplní plný název (Slavia → SK Slavia Praha)
+    - Najde podobné týmy v databázi
+    """
+
+    if name is None:
+        return ""
+    if isinstance(name, bool):
+        return ""
+    if not isinstance(name, str):
+        name = str(name)
+    name = name.strip()
+    name = name.replace("\u00a0", " ").replace("\t", " ").strip()
+    name = re.sub(r"\s+", " ", name)
+    # Normalize common Czech football prefix patterns
+    name = re.sub(r"\b1\.?\s*FC\b", "1. FC", name, flags=re.IGNORECASE)
+    name = re.sub(r"\bFK\b", "FK", name)
+
+    # Aliasy z DB (spravované v Admin UI)
+    if round_id:
+        try:
+            al = TeamAlias.query.filter_by(round_id=round_id, alias=name).first()
+            if not al:
+                # case-insensitive match
+                al = TeamAlias.query.filter(TeamAlias.round_id == round_id, db.func.lower(TeamAlias.alias) == name.lower()).first()
+            if al and al.canonical_name:
+                return al.canonical_name
+        except Exception as e:
+            print(f"⚠️ Chyba v TeamAlias lookup: {e}")
+
+    # Zkratky → plné názvy
+    short_to_full = {
+        # Zkratky / běžné názvy → názvy, které typicky chceš mít v DB
+        'Dukla': 'FK Dukla Praha',
+        'Slavia': 'SK Slavia Praha',
+        'Sparta': 'AC Sparta Praha',
+        'Ostrava': 'FC Baník Ostrava',
+        'Baník': 'FC Baník Ostrava',
+
+        'Liberec': 'FC Slovan Liberec',
+        'Hradec Kr.': 'FC Hradec Králové',
+        'Hradec': 'FC Hradec Králové',
+
+        'Ml. Boleslav': 'FK Mladá Boleslav',
+        'Mladá Boleslav': 'FK Mladá Boleslav',
+        'Jablonec': 'FK Jablonec',
+
+        'Pardubice': 'FK Pardubice',
+        'Teplice': 'FK Teplice',
+
+        'Karviná': 'MFK Karviná',
+        'Slovácko': '1.FC Slovácko',
+
+        'Zlín': 'FC Zlín',
+        'Plzeň': 'FC Viktoria Plzeň',
+
+        'Olomouc': 'SK Sigma Olomouc',
+        'Sigma': 'SK Sigma Olomouc',
+
+        'Bohemians': 'Bohemians Praha 1905',
+    }
+
+
+    # Přesná shoda
+    if name in short_to_full:
+        return short_to_full[name]
+
+    # Case-insensitive hledání
+    for short, full in short_to_full.items():
+        if name.lower() == short.lower():
+            return full
+        if name.lower() == full.lower():
+            return full
+
+    # Částečná shoda
+    for short, full in short_to_full.items():
+        if short.lower() in name.lower() or name.lower() in short.lower():
+            return full
+    # Pokud je round_id, zkus najít v DB (fuzzy match na existující Team.name)
+    if round_id:
+        try:
+            if not isinstance(name, str):
+                name = str(name)
+
+            # Načti názvy týmů pro tuto soutěž
+            team_names = [
+                (t.name or "").strip()
+                for t in Team.query.filter_by(round_id=round_id, is_deleted=False).all()
+                if t and t.name
+            ]
+
+            needle = name.lower()
+            for tname in team_names:
+                t_low = tname.lower()
+                if needle in t_low or t_low in needle:
+                    return tname
+        except Exception as e:
+            print(f"⚠️ Chyba v normalize_team_name: {e}")
+            pass
+    # Žádná shoda - vrať original
+    return name
+
+
 def register_admin_core(app):
     @app.route("/admin/dashboard")
     @login_required
