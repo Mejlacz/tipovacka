@@ -1220,6 +1220,7 @@ from flask_login import current_user, login_required
 from models import AuditLog, ExtraAnswer, ExtraQuestion, ImportSession, Match, Round, Team, Tip, UndoStack, User
 from app_utils import admin_required, audit, compute_leaderboard, create_undo_point, ensure_selected_round, perform_undo, render_page, send_email_with_attachment, send_results_notification
 from extensions import db
+from app_utils import admin_required, audit, compute_leaderboard, create_undo_point, ensure_selected_round, perform_undo, render_page, send_email_with_attachment, send_results_notification, normalize_team_name
 
 
 def _parse_fragmented_column_ocr(text: str) -> List[Dict]:
