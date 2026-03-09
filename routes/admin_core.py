@@ -407,6 +407,11 @@ def smart_parse_matches(text: str, round_id: int = None) -> List[Dict]:
         print(f"✅ OCR multiline parser: Nalezeno {len(ocr_multiline)} zápasů")
         return ocr_multiline
 
+    # TRY: Fragmented column OCR (mobile app screenshots)
+    fragmented = _parse_fragmented_column_ocr(text)
+    if fragmented:
+        return fragmented
+
     # Step 2: Handle table copy/paste (all lines joined)
     text = _split_joined_lines(text)
 
@@ -1215,6 +1220,83 @@ from flask_login import current_user, login_required
 from models import AuditLog, ExtraAnswer, ExtraQuestion, ImportSession, Match, Round, Team, Tip, UndoStack, User
 from app_utils import admin_required, audit, compute_leaderboard, create_undo_point, ensure_selected_round, perform_undo, render_page, send_email_with_attachment, send_results_notification
 from extensions import db
+
+
+def _parse_fragmented_column_ocr(text: str) -> List[Dict]:
+    """
+    Handles OCR from mobile football apps where columns are read separately:
+    All dates appear first, then times, then team names (home block + away block).
+    e.g. "08.03.\n08.03.\n18:30\n15:30\nSlavia Praha\nBohemians..."
+    """
+    # Clean each line of leading OCR icon artifacts
+    clean_lines = []
+    for l in text.splitlines():
+        l = re.sub(r'^[\W_\d]{1,4}\s+(?=[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ])', '', l, flags=re.UNICODE)
+        l = re.sub(r'^[yY]{2}\s+|^[fF]{1,2}\s+|^[J][}]\s*|^[$@©%?()\[\]{}]+\s*', '', l)
+        l = l.strip()
+        if l:
+            clean_lines.append(l)
+
+    dates, times, teams = [], [], []
+
+    for l in clean_lines:
+        # Skip headers/junk
+        if re.search(r'kolo|liga|česko|chance', l, re.IGNORECASE):
+            continue
+        # Date: 08.03. or 8.3. or 08.03.2026
+        if re.match(r'^\d{1,2}\.\s*\d{1,2}\.?(\s*\d{4})?$', l):
+            dates.append(l.strip().rstrip('.'))
+            continue
+        # Time: 18:30
+        if re.match(r'^\d{1,2}:\d{2}$', l):
+            times.append(l)
+            continue
+        # Score: 2:1 or 0:0 — looks like time but digits < 24
+        if re.match(r'^\d{1,2}:\d{2}$', l):
+            continue
+        # Team name: has Czech/latin uppercase, length >= 3
+        if len(l) >= 3 and re.search(r'[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]', l) and not re.match(r'^[\d\s:.,()%-]+$', l):
+            # Filter obvious junk
+            if not re.match(r'^[OoN0\s.,-]{3,}$', l):
+                teams.append(l)
+
+    if not dates or len(teams) < 4:
+        return []
+
+    n = len(dates)
+    half = len(teams) // 2
+    n_matches = min(n, half)
+
+    matches = []
+    for i in range(n_matches):
+        home = teams[i]
+        away = teams[i + half] if (i + half) < len(teams) else None
+        if not home or not away:
+            continue
+
+        date_str = dates[i]
+        time_str = times[i] if i < len(times) else None
+
+        # Add current year if missing
+        if re.match(r'^\d{1,2}\.\d{1,2}$', date_str):
+            date_str += f".{datetime.datetime.now().year}"
+
+        dt = None
+        try:
+            full_str = date_str + (" " + time_str if time_str else "")
+            dt = _parse_datetime(full_str.strip())
+        except Exception:
+            pass
+
+        match: Dict = {'home': home, 'away': away}
+        if dt:
+            match['start_time'] = dt.isoformat()
+        matches.append(match)
+
+    if matches:
+        print(f"✅ Fragmented column OCR parser: Nalezeno {len(matches)} zápasů")
+    return matches
+
 
 def register_admin_core(app):
     @app.route("/admin/dashboard")
