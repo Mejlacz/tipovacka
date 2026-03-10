@@ -1249,6 +1249,11 @@ def _parse_fragmented_column_ocr(text: str) -> List[Dict]:
         if len(l) >= 3 and re.search(r'[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]', l):
             teams.append(l)
 
+    print(f"🔍 OCR debug: dates={len(dates)} times={len(times)} teams={len(teams)}")
+    print(f"   dates={dates}")
+    print(f"   times={times}")
+    print(f"   teams={teams}")
+
     if len(teams) < 2 or not dates:
         return []
 
