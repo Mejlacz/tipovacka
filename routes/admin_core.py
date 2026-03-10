@@ -3814,6 +3814,10 @@ def register_admin_core(app):
                 # Normalize team names
                 if round_id:
                     for m in matches:
+                        if 'home' in m and 'home_team' not in m:
+                            m['home_team'] = m.pop('home')
+                        if 'away' in m and 'away_team' not in m:
+                            m['away_team'] = m.pop('away')
                         m['home_team'] = normalize_team_name(m['home_team'], int(round_id))
                         m['away_team'] = normalize_team_name(m['away_team'], int(round_id))
 
