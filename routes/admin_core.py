@@ -1217,7 +1217,7 @@ from openpyxl.styles import PatternFill, Font
 from flask import current_app, request, flash, redirect, url_for, send_file, session, Response, render_template_string
 from flask_login import current_user, login_required
 
-from models import AuditLog, ExtraAnswer, ExtraQuestion, ImportSession, Match, Round, Team, Tip, UndoStack, User
+from models import AuditLog, ExtraAnswer, ExtraQuestion, ImportSession, Match, Round, Team, Tip, UndoStack, User, TeamAlias
 from app_utils import admin_required, audit, compute_leaderboard, create_undo_point, ensure_selected_round, perform_undo, render_page, send_email_with_attachment, send_results_notification
 from extensions import db
 
@@ -1264,13 +1264,33 @@ def _parse_fragmented_column_ocr(text: str) -> List[Dict]:
         return []
 
     n = len(dates)
-    half = len(teams) // 2
-    n_matches = min(n, half)
+
+    # Zkus oba layouty: blokový (home1..N, away1..N) i střídaný (home1,away1,home2,away2...)
+    def try_block(teams, n):
+        half = len(teams) // 2
+        result = []
+        for i in range(min(n, half)):
+            h, a = teams[i], teams[i + half] if (i + half) < len(teams) else None
+            if h and a:
+                result.append((h, a))
+        return result
+
+    def try_interleaved(teams, n):
+        result = []
+        for i in range(min(n, len(teams) // 2)):
+            h, a = teams[i*2], teams[i*2+1] if i*2+1 < len(teams) else None
+            if h and a:
+                result.append((h, a))
+        return result
+
+    block = try_block(teams, n)
+    interleaved = try_interleaved(teams, n)
+    pairs = interleaved if len(interleaved) >= len(block) else block
+    n_matches = len(pairs)
 
     matches = []
     for i in range(n_matches):
-        home = teams[i]
-        away = teams[i + half] if (i + half) < len(teams) else None
+        home, away = pairs[i]
         if not home or not away:
             continue
 
