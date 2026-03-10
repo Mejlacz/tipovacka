@@ -398,6 +398,11 @@ def smart_parse_matches(text: str, round_id: int = None) -> List[Dict]:
                     match['start_time'] = match['start_time'].isoformat()
             return matches
 
+    # TRY: Fragmented column OCR (mobile app) - BEFORE cleanup (needs raw OCR)
+    fragmented = _parse_fragmented_column_ocr(text)
+    if fragmented:
+        return fragmented
+
     # Step 1: Clean OCR artifacts (vice>, |, extra whitespace)
     text = _clean_ocr_artifacts(text)
 
@@ -406,11 +411,6 @@ def smart_parse_matches(text: str, round_id: int = None) -> List[Dict]:
     if ocr_multiline:
         print(f"✅ OCR multiline parser: Nalezeno {len(ocr_multiline)} zápasů")
         return ocr_multiline
-
-    # TRY: Fragmented column OCR (mobile app screenshots)
-    fragmented = _parse_fragmented_column_ocr(text)
-    if fragmented:
-        return fragmented
 
     # Step 2: Handle table copy/paste (all lines joined)
     text = _split_joined_lines(text)
