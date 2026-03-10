@@ -1224,72 +1224,71 @@ from extensions import db
 
 
 def _parse_fragmented_column_ocr(text: str) -> List[Dict]:
-    """OCR z mobilni app - datum+cas na jednom radku, tymy stridade, junk filtrovany."""
+    """OCR z mobilni app Flashscore - fragmentovane sloupce."""
     date_times = []
     teams = []
     for raw in text.splitlines():
         l = raw.strip()
         if not l: continue
-        if re.search(r'\bkolo\b|liga|česko|chance|uefa|premier|bundesliga', l, re.IGNORECASE):
-            continue
+        if re.search(r'\bkolo\b|liga|česko|chance|tabulka\b', l, re.IGNORECASE): continue
         l = re.sub(r'^[yYfF]{1,2}\s+', '', l)
         l = re.sub(r'^[J][}]\s*|^[$@©%?()\[\]{}|]+\s*', '', l)
-        l = re.sub(r'[\(\)©@$%|]+$', '', l).strip()
+        l = re.sub(r'[\(\)©@$%|☆★]+$', '', l).strip()
         if not l: continue
         m = re.match(r'^(\d{1,2}\.\d{1,2}\.?)[\s,]+(\d{1,2}:\d{2})', l)
         if m:
             date_times.append((m.group(1).rstrip('.'), m.group(2))); continue
         if re.match(r'^\d{1,2}\.\d{1,2}\.?(\s*\d{4})?$', l):
             date_times.append((l.rstrip('.'), None)); continue
+        # Cas -> PRVNI datum bez casu (ne posledni)
         if re.match(r'^\d{1,2}:\d{2}$', l):
-            for i in range(len(date_times)-1, -1, -1):
+            for i in range(len(date_times)):
                 if date_times[i][1] is None:
                     date_times[i] = (date_times[i][0], l); break
             continue
-        if re.match(r'^\d{1,4}$', l): continue
-        # Zahoď ČISTÁ čísla (skóre: "3", "1", "0") a čistý score "3:1"
-        # ALE nechej týmy kde OCR záměnil l→1 (např. "Jab1onec", "Z1ín")
-        if re.match(r'^\d{1,4}$', l): continue
-        if re.match(r'^\d+[:\-]\d+$', l): continue
-        # Zahoď zjevný junk: víc než 40% non-písmen a zároveň obsahuje číslice
+        if re.match(r'^\d{1,4}$', l) or re.match(r'^\d+[:\-]\d+$', l): continue
         if re.search(r'\d', l):
             letters = len(re.findall(r'[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽa-záčďéěíňóřšťúůýž]', l))
-            if letters / max(len(l.replace(' ','')), 1) < 0.6:
-                continue
+            if letters / max(len(l.replace(' ','')), 1) < 0.6: continue
         clean = re.sub(r'[^A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽa-záčďéěíňóřšťúůýž\s]', '', l).strip()
         if len(clean) < 3: continue
         if not re.match(r'^[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]', clean): continue
+        # Junk kde vsechna slova jsou kratka: "Se Se eH He H"
+        words = clean.split()
+        if len(words) >= 3 and all(len(w) <= 3 for w in words): continue
+        # Odstran 1-2 pismenné OCR prefixy: "P Pardubice"→"Pardubice"
+        clean = re.sub(r'^[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]{1,2}\s+(?=[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ][a-záčďéěíňóřšťúůýž])', '', clean).strip()
+        if len(clean) < 3: continue
         teams.append(clean)
 
-    print(f"🔍 OCR debug26: dates={len(date_times)} teams={len(teams)}")
-    print(f"   date_times={date_times}")
-    print(f"   teams={teams}")
-    if len(teams) < 2 or not date_times:
-        return []
+    print(f"🔍 OCR debug: dates={len(date_times)} teams={len(teams)}: {teams}")
 
-    n_teams = len(teams) // 2  # Použij VŠECHNY týmy, datum doplníme z posledního
+    if len(teams) < 2 or not date_times: return []
+
+    # Odstrañ duplicity (zachovej porad)
+    seen = []
+    for t in teams:
+        if t not in seen: seen.append(t)
+    teams = seen
+
+    n_teams = len(teams) // 2
     pairs_i = [(teams[i*2], teams[i*2+1]) for i in range(n_teams) if i*2+1 < len(teams)]
     half = len(teams) // 2
     pairs_b = [(teams[i], teams[i+half]) for i in range(min(len(date_times), half)) if i+half < len(teams)]
     pairs = pairs_i if len(pairs_i) >= len(pairs_b) else pairs_b
-    if not pairs:
-        return []
+    if not pairs: return []
 
-    last_d, last_t = (date_times[-1] if date_times else (None, None))
+    last_d, last_t = date_times[-1]
     matches = []
     for i, (home, away) in enumerate(pairs):
         d, t = date_times[i] if i < len(date_times) else (last_d, last_t)
         dt = None
         if d:
-            if re.match(r'^\d{1,2}\.\d{1,2}$', d):
-                d += f".{datetime.datetime.now().year}"
-            try:
-                dt = _parse_datetime((d + " " + t) if t else d)
-            except Exception:
-                pass
+            if re.match(r'^\d{1,2}\.\d{1,2}$', d): d += f".{dt_cls.now().year}"
+            try: dt = _parse_datetime((d + " " + t) if t else d)
+            except: pass
         match: Dict = {'home_team': home, 'away_team': away}
-        if dt:
-            match['start_time'] = dt.isoformat()
+        if dt: match['start_time'] = dt.isoformat()
         matches.append(match)
 
     print(f"✅ Fragmented OCR: {len(matches)} zapasu")
