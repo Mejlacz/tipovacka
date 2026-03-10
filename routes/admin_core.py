@@ -1223,67 +1223,56 @@ from extensions import db
 
 
 def _parse_fragmented_column_ocr(text: str) -> List[Dict]:
-    """OCR z mobilni app - sloupce cteny oddelene: data, casy, tymy stridade."""
-    dates, times, teams = [], [], []
+    """OCR z mobilni app - datum+cas na jednom radku, tymy stridade, junk filtrovany."""
+    date_times = []
+    teams = []
     for raw in text.splitlines():
         l = raw.strip()
-        if not l:
-            continue
-        if re.search(r'kolo|liga|česko|chance|uefa|premier|bundesliga', l, re.IGNORECASE):
+        if not l: continue
+        if re.search(r'\bkolo\b|liga|česko|chance|uefa|premier|bundesliga', l, re.IGNORECASE):
             continue
         l = re.sub(r'^[yYfF]{1,2}\s+', '', l)
         l = re.sub(r'^[J][}]\s*|^[$@©%?()\[\]{}|]+\s*', '', l)
         l = re.sub(r'[\(\)©@$%|]+$', '', l).strip()
-        if not l:
-            continue
+        if not l: continue
+        m = re.match(r'^(\d{1,2}\.\d{1,2}\.?)[\s,]+(\d{1,2}:\d{2})', l)
+        if m:
+            date_times.append((m.group(1).rstrip('.'), m.group(2))); continue
         if re.match(r'^\d{1,2}\.\d{1,2}\.?(\s*\d{4})?$', l):
-            dates.append(l.rstrip('.'))
-            continue
+            date_times.append((l.rstrip('.'), None)); continue
         if re.match(r'^\d{1,2}:\d{2}$', l):
-            times.append(l)
+            for i in range(len(date_times)-1, -1, -1):
+                if date_times[i][1] is None:
+                    date_times[i] = (date_times[i][0], l); break
             continue
-        if re.match(r'^\d{1,4}$', l):
-            continue
-        if re.match(r'^[OoNn0\s.\-,«»]+$', l):
-            continue
-        if len(l) >= 3 and re.search(r'[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]', l):
-            teams.append(l)
+        if re.match(r'^\d{1,4}$', l): continue
+        # Radky s cisly jsou junk (skore, artefakty)
+        if re.search(r'\d', l): continue
+        clean = re.sub(r'[^A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽa-záčďéěíňóřšťúůýž\s]', '', l).strip()
+        if len(clean) < 3: continue
+        if not re.match(r'^[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]', clean): continue
+        teams.append(clean)
 
-    print(f"🔍 OCR debug: dates={len(dates)} times={len(times)} teams={len(teams)}")
-    print(f"   dates={dates}")
-    print(f"   times={times}")
-    print(f"   teams={teams}")
-
-    if len(teams) < 2 or not dates:
+    if len(teams) < 2 or not date_times:
         return []
 
-    n = len(dates)
-    pairs_interleaved = []
-    for i in range(min(n, len(teams) // 2)):
-        if i*2+1 < len(teams):
-            pairs_interleaved.append((teams[i*2], teams[i*2+1]))
-
+    n = len(date_times)
+    pairs_i = [(teams[i*2], teams[i*2+1]) for i in range(min(n, len(teams)//2)) if i*2+1 < len(teams)]
     half = len(teams) // 2
-    pairs_block = []
-    for i in range(min(n, half)):
-        if i + half < len(teams):
-            pairs_block.append((teams[i], teams[i + half]))
-
-    pairs = pairs_interleaved if len(pairs_interleaved) >= len(pairs_block) else pairs_block
+    pairs_b = [(teams[i], teams[i+half]) for i in range(min(n, half)) if i+half < len(teams)]
+    pairs = pairs_i if len(pairs_i) >= len(pairs_b) else pairs_b
     if not pairs:
         return []
 
     matches = []
     for i, (home, away) in enumerate(pairs):
-        date_str = dates[i] if i < len(dates) else None
-        time_str = times[i] if i < len(times) else None
+        d, t = date_times[i] if i < len(date_times) else (None, None)
         dt = None
-        if date_str:
-            if re.match(r'^\d{1,2}\.\d{1,2}$', date_str):
-                date_str += f".{datetime.datetime.now().year}"
+        if d:
+            if re.match(r'^\d{1,2}\.\d{1,2}$', d):
+                d += f".{datetime.datetime.now().year}"
             try:
-                full = (date_str + " " + time_str) if time_str else date_str
-                dt = _parse_datetime(full.strip())
+                dt = _parse_datetime((d + " " + t) if t else d)
             except Exception:
                 pass
         match: Dict = {'home_team': home, 'away_team': away}
@@ -1291,8 +1280,7 @@ def _parse_fragmented_column_ocr(text: str) -> List[Dict]:
             match['start_time'] = dt.isoformat()
         matches.append(match)
 
-    if matches:
-        print(f"✅ Fragmented column OCR parser: Nalezeno {len(matches)} zapasu")
+    print(f"✅ Fragmented OCR: {len(matches)} zapasu")
     return matches
 
 def normalize_team_name(name: str, round_id: int = None) -> str:
