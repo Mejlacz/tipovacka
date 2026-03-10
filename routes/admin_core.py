@@ -3,6 +3,7 @@ routes/admin_core.py
 """
 
 import datetime
+from datetime import datetime as dt_cls
 import re
 import io
 import os
@@ -255,7 +256,7 @@ def _parse_multiline_ocr_format(text: str) -> List[Dict]:
     import re
     from datetime import datetime
 
-    current_year = datetime.now().year
+    current_year = dt_cls.now().year
 
     # Regex na datum+čas: "07.03. 15:00" nebo "07.03.15:00" nebo "7.3. 15:00"
     dt_re = re.compile(r'(\d{1,2})\.(\d{1,2})\.?\s*(\d{1,2}):(\d{2})')
@@ -506,7 +507,7 @@ def _parse_compact_date_format(line: str, parts: List[str]) -> Optional[Dict]:
     # Add time to datetime
     if time_str and dt:
         try:
-            time_obj = datetime.strptime(time_str, "%H:%M").time()
+            time_obj = dt_cls.strptime(time_str, "%H:%M").time()
             dt = dt.replace(hour=time_obj.hour, minute=time_obj.minute)
         except:
             pass
@@ -555,7 +556,7 @@ def _parse_date_first_format(line: str, parts: List[str]) -> Optional[Dict]:
             # It's a time
             if dt:
                 try:
-                    time_obj = datetime.strptime(full_match, "%H:%M").time()
+                    time_obj = dt_cls.strptime(full_match, "%H:%M").time()
                     dt = dt.replace(hour=time_obj.hour, minute=time_obj.minute)
                 except:
                     pass
@@ -701,7 +702,7 @@ def _parse_table_format(line: str) -> Optional[Dict]:
     if is_time:
         # Parse as time
         try:
-            dt = datetime.strptime(f"{date_str} {time_or_score}", "%d. %m. %Y %H:%M")
+            dt = dt_cls.strptime(f"{date_str} {time_or_score}", "%d. %m. %Y %H:%M")
             result['start_time'] = dt
         except:
             result['start_time'] = None
@@ -711,7 +712,7 @@ def _parse_table_format(line: str) -> Optional[Dict]:
         result['away_score'] = min_or_away
         # Parse just the date (no time)
         try:
-            dt = datetime.strptime(date_str, "%d. %m. %Y")
+            dt = dt_cls.strptime(date_str, "%d. %m. %Y")
             result['start_time'] = dt
         except:
             result['start_time'] = None
@@ -883,7 +884,7 @@ def _parse_uefa_style(line: str) -> Optional[Dict]:
             'away_team': away,
             'home_score': int(m.group(2)),
             'away_score': int(m.group(3)),
-            'start_time': datetime.now().replace(hour=hour, minute=minute),
+            'start_time': dt_cls.now().replace(hour=hour, minute=minute),
         }
 
     # Bez času
@@ -1118,10 +1119,10 @@ def _parse_datetime_first(line: str) -> Optional[Dict]:
 
     day, month = int(m.group(1)), int(m.group(2))
     hour, minute = int(m.group(3)), int(m.group(4))
-    year = datetime.now().year
+    year = dt_cls.now().year
 
     # Pokud je měsíc v minulosti, použij příští rok
-    if month < datetime.now().month:
+    if month < dt_cls.now().month:
         year += 1
 
     return {
@@ -1196,11 +1197,11 @@ def _parse_datetime(s: str) -> Optional[datetime]:
 
     for fmt in formats:
         try:
-            dt = datetime.strptime(s, fmt)
+            dt = dt_cls.strptime(s, fmt)
             # IMPROVEMENT: If year is missing (1900), add current/next year
             if dt.year == 1900:
-                year = datetime.now().year
-                if dt.month < datetime.now().month:
+                year = dt_cls.now().year
+                if dt.month < dt_cls.now().month:
                     year += 1
                 dt = dt.replace(year=year)
             return dt
@@ -1246,27 +1247,38 @@ def _parse_fragmented_column_ocr(text: str) -> List[Dict]:
                     date_times[i] = (date_times[i][0], l); break
             continue
         if re.match(r'^\d{1,4}$', l): continue
-        # Radky s cisly jsou junk (skore, artefakty)
-        if re.search(r'\d', l): continue
+        # Zahoď ČISTÁ čísla (skóre: "3", "1", "0") a čistý score "3:1"
+        # ALE nechej týmy kde OCR záměnil l→1 (např. "Jab1onec", "Z1ín")
+        if re.match(r'^\d{1,4}$', l): continue
+        if re.match(r'^\d+[:\-]\d+$', l): continue
+        # Zahoď zjevný junk: víc než 40% non-písmen a zároveň obsahuje číslice
+        if re.search(r'\d', l):
+            letters = len(re.findall(r'[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽa-záčďéěíňóřšťúůýž]', l))
+            if letters / max(len(l.replace(' ','')), 1) < 0.6:
+                continue
         clean = re.sub(r'[^A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽa-záčďéěíňóřšťúůýž\s]', '', l).strip()
         if len(clean) < 3: continue
         if not re.match(r'^[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]', clean): continue
         teams.append(clean)
 
+    print(f"🔍 OCR debug26: dates={len(date_times)} teams={len(teams)}")
+    print(f"   date_times={date_times}")
+    print(f"   teams={teams}")
     if len(teams) < 2 or not date_times:
         return []
 
-    n = len(date_times)
-    pairs_i = [(teams[i*2], teams[i*2+1]) for i in range(min(n, len(teams)//2)) if i*2+1 < len(teams)]
+    n_teams = len(teams) // 2  # Použij VŠECHNY týmy, datum doplníme z posledního
+    pairs_i = [(teams[i*2], teams[i*2+1]) for i in range(n_teams) if i*2+1 < len(teams)]
     half = len(teams) // 2
-    pairs_b = [(teams[i], teams[i+half]) for i in range(min(n, half)) if i+half < len(teams)]
+    pairs_b = [(teams[i], teams[i+half]) for i in range(min(len(date_times), half)) if i+half < len(teams)]
     pairs = pairs_i if len(pairs_i) >= len(pairs_b) else pairs_b
     if not pairs:
         return []
 
+    last_d, last_t = (date_times[-1] if date_times else (None, None))
     matches = []
     for i, (home, away) in enumerate(pairs):
-        d, t = date_times[i] if i < len(date_times) else (None, None)
+        d, t = date_times[i] if i < len(date_times) else (last_d, last_t)
         dt = None
         if d:
             if re.match(r'^\d{1,2}\.\d{1,2}$', d):
