@@ -1223,100 +1223,72 @@ from extensions import db
 
 
 def _parse_fragmented_column_ocr(text: str) -> List[Dict]:
-    """
-    Handles OCR from mobile football apps where columns are read separately:
-    All dates appear first, then times, then team names (home block + away block).
-    e.g. "08.03.\n08.03.\n18:30\n15:30\nSlavia Praha\nBohemians..."
-    """
-    # Clean each line of leading OCR icon artifacts
-    clean_lines = []
-    for l in text.splitlines():
-        l = re.sub(r'^[\W_\d]{1,4}\s+(?=[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ])', '', l, flags=re.UNICODE)
-        l = re.sub(r'^[yY]{2}\s+|^[fF]{1,2}\s+|^[J][}]\s*|^[$@©%?()\[\]{}]+\s*', '', l)
-        l = l.strip()
-        if l:
-            clean_lines.append(l)
-
+    """OCR z mobilni app - sloupce cteny oddelene: data, casy, tymy stridade."""
     dates, times, teams = [], [], []
-
-    for l in clean_lines:
-        # Skip headers/junk
-        if re.search(r'kolo|liga|česko|chance', l, re.IGNORECASE):
+    for raw in text.splitlines():
+        l = raw.strip()
+        if not l:
             continue
-        # Date: 08.03. or 8.3. or 08.03.2026
-        if re.match(r'^\d{1,2}\.\s*\d{1,2}\.?(\s*\d{4})?$', l):
-            dates.append(l.strip().rstrip('.'))
+        if re.search(r'kolo|liga|česko|chance|uefa|premier|bundesliga', l, re.IGNORECASE):
             continue
-        # Time: 18:30
+        l = re.sub(r'^[yYfF]{1,2}\s+', '', l)
+        l = re.sub(r'^[J][}]\s*|^[$@©%?()\[\]{}|]+\s*', '', l)
+        l = re.sub(r'[\(\)©@$%|]+$', '', l).strip()
+        if not l:
+            continue
+        if re.match(r'^\d{1,2}\.\d{1,2}\.?(\s*\d{4})?$', l):
+            dates.append(l.rstrip('.'))
+            continue
         if re.match(r'^\d{1,2}:\d{2}$', l):
             times.append(l)
             continue
-        # Score: 2:1 or 0:0 — looks like time but digits < 24
-        if re.match(r'^\d{1,2}:\d{2}$', l):
+        if re.match(r'^\d{1,4}$', l):
             continue
-        # Team name: has Czech/latin uppercase, length >= 3
-        if len(l) >= 3 and re.search(r'[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]', l) and not re.match(r'^[\d\s:.,()%-]+$', l):
-            # Filter obvious junk
-            if not re.match(r'^[OoN0\s.,-]{3,}$', l):
-                teams.append(l)
+        if re.match(r'^[OoNn0\s.\-,«»]+$', l):
+            continue
+        if len(l) >= 3 and re.search(r'[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]', l):
+            teams.append(l)
 
-    if not dates or len(teams) < 4:
+    if len(teams) < 2 or not dates:
         return []
 
     n = len(dates)
+    pairs_interleaved = []
+    for i in range(min(n, len(teams) // 2)):
+        if i*2+1 < len(teams):
+            pairs_interleaved.append((teams[i*2], teams[i*2+1]))
 
-    # Zkus oba layouty: blokový (home1..N, away1..N) i střídaný (home1,away1,home2,away2...)
-    def try_block(teams, n):
-        half = len(teams) // 2
-        result = []
-        for i in range(min(n, half)):
-            h, a = teams[i], teams[i + half] if (i + half) < len(teams) else None
-            if h and a:
-                result.append((h, a))
-        return result
+    half = len(teams) // 2
+    pairs_block = []
+    for i in range(min(n, half)):
+        if i + half < len(teams):
+            pairs_block.append((teams[i], teams[i + half]))
 
-    def try_interleaved(teams, n):
-        result = []
-        for i in range(min(n, len(teams) // 2)):
-            h, a = teams[i*2], teams[i*2+1] if i*2+1 < len(teams) else None
-            if h and a:
-                result.append((h, a))
-        return result
-
-    block = try_block(teams, n)
-    interleaved = try_interleaved(teams, n)
-    pairs = interleaved if len(interleaved) >= len(block) else block
-    n_matches = len(pairs)
+    pairs = pairs_interleaved if len(pairs_interleaved) >= len(pairs_block) else pairs_block
+    if not pairs:
+        return []
 
     matches = []
-    for i in range(n_matches):
-        home, away = pairs[i]
-        if not home or not away:
-            continue
-
-        date_str = dates[i]
+    for i, (home, away) in enumerate(pairs):
+        date_str = dates[i] if i < len(dates) else None
         time_str = times[i] if i < len(times) else None
-
-        # Add current year if missing
-        if re.match(r'^\d{1,2}\.\d{1,2}$', date_str):
-            date_str += f".{datetime.datetime.now().year}"
-
         dt = None
-        try:
-            full_str = date_str + (" " + time_str if time_str else "")
-            dt = _parse_datetime(full_str.strip())
-        except Exception:
-            pass
-
-        match: Dict = {'home': home, 'away': away}
+        if date_str:
+            if re.match(r'^\d{1,2}\.\d{1,2}$', date_str):
+                date_str += f".{datetime.datetime.now().year}"
+            try:
+                full = (date_str + " " + time_str) if time_str else date_str
+                dt = _parse_datetime(full.strip())
+            except Exception:
+                pass
+        match: Dict = {'home_team': home, 'away_team': away}
         if dt:
             match['start_time'] = dt.isoformat()
         matches.append(match)
 
     if matches:
-        print(f"✅ Fragmented column OCR parser: Nalezeno {len(matches)} zápasů")
+        print(f"✅ Fragmented column OCR parser: Nalezeno {len(matches)} zapasu")
     return matches
-
 
 def normalize_team_name(name: str, round_id: int = None) -> str:
     """
